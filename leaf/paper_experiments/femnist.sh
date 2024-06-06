@@ -4,17 +4,13 @@ output_dir="${1:-./baseline}"
 
 split_seed="1549786796"
 sampling_seed="1549786595"
-num_rounds="2000"
+num_rounds="1000"
 
 fedavg_lr="0.004"
-declare -a fedavg_vals=( "3 1"
-			 "3 100"
-			 "35 1" )
+declare -a fedavg_vals=( "5 1" "10 1" "30 1" "50 1")
 
 minibatch_lr="0.06"
-declare -a minibatch_vals=( "3 1"
-			    "3 0.1"
-			    "35 1" )
+declare -a minibatch_vals=( "30 0.1"  "30 0.2"  "30 0.5"  "30 0.8")
 
 ###################### Functions ###################################
 
@@ -36,7 +32,7 @@ function run_fedavg() {
 	num_epochs="$2"
 
 	pushd models/
-		python main.py -dataset 'femnist' -model 'cnn' --num-rounds ${num_rounds} --clients-per-round ${clients_per_round} --num-epochs ${num_epochs} -lr ${fedavg_lr}
+		python3.6 main.py -dataset 'femnist' -model 'cnn' --num-rounds ${num_rounds} --clients-per-round ${clients_per_round} --num-epochs ${num_epochs} -lr ${fedavg_lr}
 	popd
 	move_data ${output_dir} "fedavg_c_${clients_per_round}_e_${num_epochs}"
 }
@@ -46,7 +42,7 @@ function run_minibatch() {
 	minibatch_percentage="$2"
 
 	pushd models/
-		python main.py -dataset 'femnist' -model 'cnn' --minibatch ${minibatch_percentage} --num-rounds ${num_rounds} --clients-per-round ${clients_per_round} -lr ${minibatch_lr}
+		python3.6 main.py -dataset 'femnist' -model 'cnn' --minibatch ${minibatch_percentage} --num-rounds ${num_rounds} --clients-per-round ${clients_per_round} -lr ${minibatch_lr}
 	popd
 	move_data ${output_dir} "minibatch_c_${clients_per_round}_mb_${minibatch_percentage}"
 }
