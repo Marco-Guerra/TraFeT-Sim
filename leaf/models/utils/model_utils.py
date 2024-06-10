@@ -9,12 +9,21 @@ def batch_data(data, batch_size, seed):
     data is a dict := {'x': [numpy array], 'y': [numpy array]} (on one client)
     returns x, y, which are both numpy array of length: batch_size
     '''
-    data_x = data['x']
-    data_y = data['y']
+    data_xx = data['x']
+    data_yy = data['y']
 
     # randomly shuffle data
     np.random.seed(seed)
     rng_state = np.random.get_state()
+
+    if type(data_xx) is tuple:
+        # print("my_var data_x is a tuple")
+        data_x = list(data_xx)
+        data_y = list(data_yy)
+    else:
+        data_x = data_xx
+        data_y = data_yy
+
     np.random.shuffle(data_x)
     np.random.set_state(rng_state)
     np.random.shuffle(data_y)

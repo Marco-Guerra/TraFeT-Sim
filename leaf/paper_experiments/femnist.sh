@@ -19,8 +19,8 @@ function move_data() {
 	suffix="$2"
 	
 	pushd models/metrics
-		mv sys_metrics.csv "${path}/sys_metrics_${suffix}.csv"
-		mv stat_metrics.csv "${path}/stat_metrics_${suffix}.csv"
+		mv metrics_sys.csv "${path}/metrics_sys_${suffix}.csv"
+		mv metrics_stat.csv "${path}/metrics_stat_${suffix}.csv"
 	popd
 
 	cp -r data/femnist/meta "${path}"
