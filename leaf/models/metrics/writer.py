@@ -8,7 +8,7 @@ import sys
 models_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(models_dir)
 
-from baseline_constants import CLIENT_ID_KEY, NUM_ROUND_KEY, NUM_SAMPLES_KEY
+from constants import CLIENT_ID_KEY, NUM_ROUND_KEY, NUM_SAMPLES_KEY
 
 
 COLUMN_NAMES = [

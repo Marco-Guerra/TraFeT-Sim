@@ -1,6 +1,6 @@
 # Federated-Learning-Network-Workload
 
-Project to Impact of Federated Learning Applications on the Network Workload
+Project to Evaluate the Impact of Federated Learning Applications on the Network Workload
 
 ## Environment Preparation
 
@@ -10,13 +10,17 @@ Project to Impact of Federated Learning Applications on the Network Workload
 
 ### Create Virtual Environment
 
-    $ virtualenv -p <python-bin> venvleaf
+    $ virtualenv -p <python-bin> venv
     
-* Use ``which`` command to find python source
+* Use ``which`` command to find python3.6 source
 
 ### Activate Virtual Environment
 
-    $ source venvleaf/bin/activate
+    $ source venv/bin/activate
+
+### Install Packages imside Virtual Environment
+
+    $ pip install -r requirements
 
 ### Desactivate Virtual Environment
 

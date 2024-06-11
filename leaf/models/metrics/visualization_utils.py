@@ -14,7 +14,7 @@ from decimal import Decimal
 models_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(models_dir)
 
-from baseline_constants import (
+from constants import (
     ACCURACY_KEY,
     BYTES_READ_KEY,
     BYTES_WRITTEN_KEY,

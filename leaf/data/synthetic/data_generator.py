@@ -2,7 +2,6 @@ import numpy as np
 
 from scipy.special import softmax
 
-
 NUM_DIM = 10
 
 class SyntheticDataset:

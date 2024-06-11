@@ -27,10 +27,13 @@ import os
 import random
 import re
 import sys
+
 RANDOM_SEED = 1234
+
 # Regular expression to capture an actors name, and line continuation
 CHARACTER_RE = re.compile(r'^  ([a-zA-Z][a-zA-Z ]*)\. (.*)')
 CONT_RE = re.compile(r'^    (.*)')
+
 # The Comedy of Errors has errors in its indentation so we need to use
 # different regular expressions.
 COE_CHARACTER_RE = re.compile(r'^([a-zA-Z][a-zA-Z ]*)\. (.*)')

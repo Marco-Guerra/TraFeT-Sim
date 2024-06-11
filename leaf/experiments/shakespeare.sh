@@ -7,7 +7,6 @@ sampling_seed=""
 
 declare -a local_epochs=( "20" "1" )
 
-
 ###################### Functions ###################################
 
 function move_data() {
@@ -32,8 +31,8 @@ function run_experiment() {
     move_data ${output_dir} "shakespeare_c_10_rnd_80_e_${num_epochs}"
 }
 
-
 ##################### Script #################################
+
 pushd ../
 
 # Check that data and models are available

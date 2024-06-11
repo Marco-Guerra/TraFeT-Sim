@@ -7,10 +7,8 @@ if [ ! -f "data/all_data/data.json" ]; then
 	exit 1
 fi
 
-
 NAME="synthetic" # name of the dataset, equivalent to directory name
  
-
 cd ../utils
 
 ./preprocess.sh --name $NAME $@

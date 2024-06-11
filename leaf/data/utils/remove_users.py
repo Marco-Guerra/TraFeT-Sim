@@ -75,4 +75,3 @@ for f in files:
     print('writing %s' % file_name)
     with open(ouf_dir, 'w') as outfile:
         json.dump(all_data, outfile)
-

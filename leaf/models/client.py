@@ -1,7 +1,6 @@
 import random
 import warnings
 
-
 class Client:
     
     def __init__(self, client_id, group=None, train_data={'x' : [],'y' : []}, eval_data={'x' : [],'y' : []}, model=None):

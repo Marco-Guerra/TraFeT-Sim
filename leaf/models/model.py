@@ -1,12 +1,14 @@
 """Interfaces for ClientModel and ServerModel."""
 
-from abc import ABC, abstractmethod
-import numpy as np
 import os
 import sys
+
+from abc import ABC, abstractmethod
+
+import numpy as np
 import tensorflow as tf
 
-from baseline_constants import ACCURACY_KEY
+from constants import ACCURACY_KEY
 
 from utils.model_utils import batch_data
 from utils.tf_utils import graph_size
