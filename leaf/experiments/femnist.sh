@@ -34,7 +34,7 @@ function run_fedavg() {
 	pushd models/
 		python3.6 main.py -dataset 'femnist' -model 'cnn' --num-rounds ${num_rounds} --clients-per-round ${clients_per_round} --num-epochs ${num_epochs} -lr ${fedavg_lr}
 	popd
-	move_data ${output_dir} "fedavg_c_${clients_per_round}_e_${num_epochs}"
+	move_data ${output_dir} "femnist_fedavg_c_${clients_per_round}_e_${num_epochs}"
 }
 
 function run_minibatch() {
@@ -44,7 +44,7 @@ function run_minibatch() {
 	pushd models/
 		python3.6 main.py -dataset 'femnist' -model 'cnn' --minibatch ${minibatch_percentage} --num-rounds ${num_rounds} --clients-per-round ${clients_per_round} -lr ${minibatch_lr}
 	popd
-	move_data ${output_dir} "minibatch_c_${clients_per_round}_mb_${minibatch_percentage}"
+	move_data ${output_dir} "femnist_minibatch_c_${clients_per_round}_mb_${minibatch_percentage}"
 }
 
 

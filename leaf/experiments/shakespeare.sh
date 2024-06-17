@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 
-output_dir="${1:-'./baseline'}"
+output_dir="${1:-./baseline}"
 
-split_seed=""
-sampling_seed=""
+split_seed="1549786796"
+sampling_seed="1549786595"
+num_rounds="1000"
 
-declare -a local_epochs=( "20" "1" )
+fedavg_lr="0.004"
+declare -a fedavg_vals=( "5 1" "10 1" "30 1" "50 1")
+
+minibatch_lr="0.06"
+declare -a minibatch_vals=( "30 0.1"  "30 0.2"  "30 0.5"  "30 0.8")
 
 ###################### Functions ###################################
 
@@ -14,21 +19,32 @@ function move_data() {
     suffix="$2"
     
     pushd models/metrics
-        mv sys_metrics.csv "${path}/sys_metrics_${suffix}.csv"
-        mv stat_metrics.csv "${path}/stat_metrics_${suffix}.csv"
+        mv metrics_sys.csv "${path}/metrics_sys_${suffix}.csv"
+		mv metrics_stat.csv "${path}/metrics_stat_${suffix}.csv"
     popd
 
     cp -rf data/shakespeare/meta "${path}"
     mv "${path}/meta" "${path}/meta_${suffix}"
 }
 
-function run_experiment() {
-    num_epochs="${1}"
-    pushd models/
-        python -u main.py -dataset shakespeare -model stacked_lstm --seed 0 --num-rounds 80 \
-                  --clients-per-round 10 --num-epochs ${num_epochs} -lr 0.8
-    popd
-    move_data ${output_dir} "shakespeare_c_10_rnd_80_e_${num_epochs}"
+function run_fedavg() {
+	clients_per_round="$1"
+	num_epochs="$2"
+
+	pushd models/
+		python3.6 main.py -dataset 'shakespeare' -model 'stacked_lstm' --num-rounds ${num_rounds} --clients-per-round ${clients_per_round} --num-epochs ${num_epochs} -lr ${fedavg_lr}
+	popd
+	move_data ${output_dir} "shakespeare_fedavg_c_${clients_per_round}_e_${num_epochs}"
+}
+
+function run_minibatch() {
+	clients_per_round="$1"
+	minibatch_percentage="$2"
+
+	pushd models/
+		python3.6 main.py -dataset 'shakespeare' -model 'stacked_lstm' --minibatch ${minibatch_percentage} --num-rounds ${num_rounds} --clients-per-round ${clients_per_round} -lr ${minibatch_lr}
+	popd
+	move_data ${output_dir} "shakespeare_minibatch_c_${clients_per_round}_mb_${minibatch_percentage}"
 }
 
 ##################### Script #################################
@@ -61,10 +77,20 @@ if [ ! -d 'data/shakespeare/data/train' ]; then
     popd
 fi
 
-# Run local epoch experiment
-for num_epoch in "${local_epochs[@]}"; do
-    echo "Running Shakespeare experiment with ${num_epoch} local epochs"
-    run_experiment "${num_epoch}"
+# Run minibatch SGD experiments
+for val_pair in "${minibatch_vals[@]}"; do
+	clients_per_round=`echo ${val_pair} | cut -d' ' -f1`
+	minibatch_percentage=`echo ${val_pair} | cut -d' ' -f2`
+	echo "Running Minibatch experiment with fraction ${minibatch_percentage} and ${clients_per_round} clients"
+	run_minibatch "${clients_per_round}" "${minibatch_percentage}"
+done
+
+# Run FedAvg experiments
+for val_pair in "${fedavg_vals[@]}"; do
+	clients_per_round=`echo ${val_pair} | cut -d' ' -f1`
+	num_epochs=`echo ${val_pair} | cut -d' ' -f2`
+	echo "Running FedAvg experiment with ${num_epochs} local epochs and ${clients_per_round} clients"
+	run_fedavg "${clients_per_round}" "${num_epochs}"
 done
 
 popd
