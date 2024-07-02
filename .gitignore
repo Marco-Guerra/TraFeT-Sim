@@ -1,4 +1,4 @@
 venvleaf/
-leaf_output.zip
+*.zip
 leaf_output/
 trace_driven_simulator/data

@@ -1,0 +1,105 @@
+import heapq  # Module for heap queue (priority queue) operations
+import pandas as pd  # Module for handling data frames (used for reading the trace file)
+
+ETHERNET_MTU:int=1500 # MTU Ethernet é 1500 bits ou 188 bytes, mas manterei 1500 bytes pra não matar o esculapio
+# Delay de Broadcast
+# 0,805 s em datacenter (cross-silo)
+# 800 s em mobile networks (cross-device)
+CROSSSILO_BROADCAST_DELAY=0.805
+CROSSDEVICE_BROADCAST_DELAY=800
+
+class Packet:
+    def __init__(self, arrival_time, size, packet_id):
+        self.arrival_time = arrival_time  # Time when the packet arrives
+        self.size = size  # Size of the packet in bytes
+        self.start_service_time = None  # Time when the packet starts being processed
+        self.departure_time = None  # Time when the packet leaves the queue
+        self.id = packet_id
+
+class MM1QueueSimulator:
+    def __init__(self, bandwidth_bps:int):
+        self.queue:list[Packet] = []  # A list to store packets currently in the queue
+        self.job_maxsize:int = ETHERNET_MTU # Assuming a ethernet network
+        self.current_time:float = 0.0  # Current time in the simulation
+        self.bandwidth_bps:int = bandwidth_bps  # Bandwidth of the server in bits per second
+        self.events:list[tuple[float, int, Packet, str]] = []  # Priority queue (heap) to manage events
+        self.results:list[tuple] = []
+        self.last_event_time:float = 0.0  # Tracks the last event time, not used in this version of the code
+        self.total_bytes:int = 0  # Total bytes processed
+        self.total_delay:int = 0  # Total delay accumulated by all packets
+        self.total_packets:int = 0  # Total number of packets processed
+
+
+    def read_trace(self, trace_file, broadcast_delay:float):
+        df = pd.read_csv(trace_file)  # Read the trace CSV file
+        packet_counter = 0
+        current_time = 0.0
+
+        rounds:int = df["round_number"].max()
+
+        for round in range(1, rounds+1):
+            clients = df[df['round_number'] == round]
+
+            for _, row in clients.iterrows():  # Iterate through each row in the dataframe
+                message_size:int = row['bytes_sended']
+
+                while message_size > 0:
+                    packet:Packet = None
+
+                    if message_size >= self.job_maxsize:
+                        packet = Packet(arrival_time=row['time'] + current_time, size=self.job_maxsize, packet_id=packet_counter) # Create a packet object
+                    else:
+                        packet = Packet(arrival_time=row['time'] + current_time, size=message_size, packet_id=packet_counter) # Create a packet object
+                    
+                    heapq.heappush(self.events, (packet.arrival_time, packet.id, packet, 'arrival'))  # Push packet arrival event into the heap
+                    packet_counter += 1
+                    message_size -= self.job_maxsize
+                
+                current_time += float(clients['time'].max()) + broadcast_delay
+
+    def process_events(self):
+        while self.events:  # Continue until there are no more events
+            time, pkid, packet, event_type = heapq.heappop(self.events)  # Pop the next event
+            self.current_time = time  # Update current simulation time
+            
+            # Process the event based on the event type
+            if event_type == 'arrival':  # If the event is an arrival                
+                # Calculate the start service time based on the current queue status
+                if not self.queue or self.queue[-1].departure_time <= packet.arrival_time: # If queue is empty or last packet has departed
+                    packet.start_service_time = packet.arrival_time  # Start service immediately if queue is empty or last packet has departed
+                else:
+                    packet.start_service_time = self.queue[-1].departure_time  # Otherwise, wait until the last packet departs
+
+                # Calculate the departure time based on the packet size and bandwidth
+                packet.departure_time = packet.start_service_time + (packet.size * 8) / self.bandwidth_bps  # Compute departure time based on size and bandwidth
+                heapq.heappush(self.events, (packet.departure_time, pkid, packet, 'departure'))  # Push departure event into the heap
+                self.queue.append(packet)  # Add packet to the queue
+            
+            # Process the departure event
+            elif event_type == 'departure':  # If the event is a departure
+                self.total_bytes += packet.size  # Update total bytes processed
+                self.total_delay += packet.departure_time - packet.arrival_time  # Update total delay
+                self.total_packets += 1  # Increment total packet count
+                delay = packet.departure_time - packet.arrival_time  # Calculate individual packet delay
+                self.queue.pop(0)
+                self.results.append((pkid, packet.arrival_time, packet.start_service_time, packet.departure_time, packet.size))
+                print(f"Arrived {packet.arrival_time} : Departed {packet.departure_time} : Delay {delay} : Size {packet.size}")
+
+    def calculate_metrics(self):
+        mean_delay = self.total_delay / self.total_packets if self.total_packets > 0 else 0
+        throughput = (self.total_bytes * 8) / (self.current_time if self.current_time > 0 else 1)
+        return mean_delay, throughput
+
+    def run_simulation(self, trace_file, broadcast_delay:float):
+        self.read_trace(trace_file, broadcast_delay)
+        self.process_events()
+        results_df = pd.DataFrame(self.results, columns=["packed-id", "arrival-time", "start_service-time", "departure-time", "size"])
+        results_df.to_csv("metrics_network.csv")
+        return self.calculate_metrics()
+
+# Example Usage
+bandwidth_bps = 40000000  # 40 Gbps
+simulator = MM1QueueSimulator(bandwidth_bps=bandwidth_bps)
+mean_delay, throughput = simulator.run_simulation('data/metrics_sys_femnist_fedavg_c_5_e_1.csv', CROSSSILO_BROADCAST_DELAY)
+print(f"Mean Delay: {mean_delay} seconds")
+print(f"Throughput: {throughput} bits per second")

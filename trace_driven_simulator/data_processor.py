@@ -54,9 +54,9 @@ def main():
 
         # response time in miliseconds
         if int(splits[5]) >= 10:
-            df['time'] = (df['local_computations'] / CROSSDEVICE_PROCESSOR_THROUGHPUT) * 1000
+            df['time'] = (df['local_computations'] / CROSSDEVICE_PROCESSOR_THROUGHPUT)
         else:
-            df['time'] = (df['local_computations'] / CROSSILO_PROCESSOR_THROUGHPUT) * 1000
+            df['time'] = (df['local_computations'] / CROSSILO_PROCESSOR_THROUGHPUT)
         
         # Prepare output file path
         output_file_path = path.join(OUTPUT_DIR_NAME, path.basename(sys_stats))
