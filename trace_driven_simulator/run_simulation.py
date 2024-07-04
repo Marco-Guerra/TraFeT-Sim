@@ -1,5 +1,6 @@
 import heapq  # Module for heap queue (priority queue) operations
 import pandas as pd  # Module for handling data frames (used for reading the trace file)
+import argparse
 
 ETHERNET_MTU:int=1500 # MTU Ethernet é 1500 bits ou 188 bytes, mas manterei 1500 bytes pra não matar o esculapio
 # Delay de Broadcast
@@ -17,20 +18,22 @@ class Packet:
         self.id = packet_id
 
 class MM1QueueSimulator:
-    def __init__(self, bandwidth_bps:int):
+    def __init__(self, bandwidth_bps:int, mtu:int):
         self.queue:list[Packet] = []  # A list to store packets currently in the queue
-        self.job_maxsize:int = ETHERNET_MTU # Assuming a ethernet network
+        self.job_maxsize:int = mtu
         self.current_time:float = 0.0  # Current time in the simulation
         self.bandwidth_bps:int = bandwidth_bps  # Bandwidth of the server in bits per second
         self.events:list[tuple[float, int, int, int, Packet, str]] = []  # Priority queue (heap) to manage events
         self.results:list[tuple] = []
-        self.last_event_time:float = 0.0  # Tracks the last event time, not used in this version of the code
+        self.results_filename = "metrics_network_"
         self.total_bytes:int = 0  # Total bytes processed
         self.total_delay:int = 0  # Total delay accumulated by all packets
         self.total_packets:int = 0  # Total number of packets processed
 
 
-    def read_trace(self, trace_file, broadcast_delay:float):
+    def read_trace(self, trace_file:str, broadcast_delay:float):
+        self.results_filename += "_".join(trace_file.split("_")[2:])
+
         df = pd.read_csv(trace_file)  # Read the trace CSV file
         packet_counter = 0
         current_time = 0.0
@@ -93,12 +96,32 @@ class MM1QueueSimulator:
         self.read_trace(trace_file, broadcast_delay)
         self.process_events()
         results_df = pd.DataFrame(self.results, columns=["client-id", "round_number", "time", "delay", "size"])
-        results_df.to_csv("metrics_network.csv")
+        results_df.to_csv(self.results_filename)
         return self.calculate_metrics()
+    
+def main():
+    parser = argparse.ArgumentParser(
+        prog='Trace-Driven Simulator',
+        description='A simulator that receive a trace file and generate a simulation of the network behavior during the trace snapshot period'
+    )
 
-# Example Usage
-bandwidth_bps = 40000000  # 40 Gbps
-simulator = MM1QueueSimulator(bandwidth_bps=bandwidth_bps)
-mean_delay, throughput = simulator.run_simulation('data/metrics_sys_femnist_fedavg_c_5_e_1.csv', CROSSSILO_BROADCAST_DELAY)
-print(f"Mean Delay: {mean_delay} seconds")
-print(f"Throughput: {throughput} bits per second")
+    parser.add_argument('-b', '--bandwidth', help='bandwidth of the simulated network', dest='bandwidth_bps', default=40000000)
+    parser.add_argument('-t', '--trace-file', help='trace file that describe the network workload during the simulation', dest='trace_file', default=None, required=True)
+    parser.add_argument('-mt', '--mtu', help='MTU of the packets in the network', dest='mtu', default=ETHERNET_MTU)
+    parser.add_argument('-fs', '--federated-scenario', help='type of federated learning scenario: cross silo or cross-device', dest='federated_scenario', default='CROSSSILO')
+
+    arguments = parser.parse_args()
+    
+    BANDWIDTH_BPS:int = int(arguments.bandwidth_bps)
+    TRACEFILE:str = str(arguments.trace_file)
+    MTU:int = int(arguments.mtu)
+    BROADCAST_DELAY:float = CROSSDEVICE_BROADCAST_DELAY if arguments.federated_scenario and arguments.federated_scenario == "CROSSDEVICE" else CROSSSILO_BROADCAST_DELAY
+
+    simulator = MM1QueueSimulator(bandwidth_bps=BANDWIDTH_BPS, mtu=MTU)
+    mean_delay, throughput = simulator.run_simulation(TRACEFILE, BROADCAST_DELAY)
+
+    print(f"Mean Delay: {mean_delay} seconds")
+    print(f"Throughput: {throughput} bits per second")
+
+if __name__ == "__main__":
+    main()
