@@ -22,7 +22,7 @@ class MM1QueueSimulator:
         self.job_maxsize:int = ETHERNET_MTU # Assuming a ethernet network
         self.current_time:float = 0.0  # Current time in the simulation
         self.bandwidth_bps:int = bandwidth_bps  # Bandwidth of the server in bits per second
-        self.events:list[tuple[float, int, Packet, str]] = []  # Priority queue (heap) to manage events
+        self.events:list[tuple[float, int, int, int, Packet, str]] = []  # Priority queue (heap) to manage events
         self.results:list[tuple] = []
         self.last_event_time:float = 0.0  # Tracks the last event time, not used in this version of the code
         self.total_bytes:int = 0  # Total bytes processed
@@ -51,7 +51,7 @@ class MM1QueueSimulator:
                     else:
                         packet = Packet(arrival_time=row['time'] + current_time, size=message_size, packet_id=packet_counter) # Create a packet object
                     
-                    heapq.heappush(self.events, (packet.arrival_time, packet.id, packet, 'arrival'))  # Push packet arrival event into the heap
+                    heapq.heappush(self.events, (packet.arrival_time, round, row['client_id'], packet.id, packet, 'arrival'))  # Push packet arrival event into the heap
                     packet_counter += 1
                     message_size -= self.job_maxsize
                 
@@ -59,7 +59,7 @@ class MM1QueueSimulator:
 
     def process_events(self):
         while self.events:  # Continue until there are no more events
-            time, pkid, packet, event_type = heapq.heappop(self.events)  # Pop the next event
+            time, round_number, client_id, pkid, packet, event_type = heapq.heappop(self.events)  # Pop the next event
             self.current_time = time  # Update current simulation time
             
             # Process the event based on the event type
@@ -72,7 +72,7 @@ class MM1QueueSimulator:
 
                 # Calculate the departure time based on the packet size and bandwidth
                 packet.departure_time = packet.start_service_time + (packet.size * 8) / self.bandwidth_bps  # Compute departure time based on size and bandwidth
-                heapq.heappush(self.events, (packet.departure_time, pkid, packet, 'departure'))  # Push departure event into the heap
+                heapq.heappush(self.events, (packet.departure_time, round_number, client_id, pkid, packet, 'departure'))  # Push departure event into the heap
                 self.queue.append(packet)  # Add packet to the queue
             
             # Process the departure event
@@ -81,8 +81,7 @@ class MM1QueueSimulator:
                 self.total_delay += packet.departure_time - packet.arrival_time  # Update total delay
                 self.total_packets += 1  # Increment total packet count
                 delay = packet.departure_time - packet.arrival_time  # Calculate individual packet delay
-                self.queue.pop(0)
-                self.results.append((pkid, packet.arrival_time, packet.start_service_time, packet.departure_time, packet.size))
+                self.results.append((client_id, round_number, round(self.current_time, 3), round(delay, 3), packet.size))
                 print(f"Arrived {packet.arrival_time} : Departed {packet.departure_time} : Delay {delay} : Size {packet.size}")
 
     def calculate_metrics(self):
@@ -93,7 +92,7 @@ class MM1QueueSimulator:
     def run_simulation(self, trace_file, broadcast_delay:float):
         self.read_trace(trace_file, broadcast_delay)
         self.process_events()
-        results_df = pd.DataFrame(self.results, columns=["packed-id", "arrival-time", "start_service-time", "departure-time", "size"])
+        results_df = pd.DataFrame(self.results, columns=["client-id", "round_number", "time", "delay", "size"])
         results_df.to_csv("metrics_network.csv")
         return self.calculate_metrics()
 
