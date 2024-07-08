@@ -5,7 +5,7 @@ import "encoding/csv"
 type WriterRegister struct {
 	ClientID    uint16
 	RoundNumber uint16
-	Size        uint16
+	Size        uint32
 	Time        float32
 	Delay       float32
 }

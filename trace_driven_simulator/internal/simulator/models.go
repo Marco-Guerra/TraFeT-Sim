@@ -21,7 +21,7 @@ const (
 )
 
 type Packet struct {
-	Size             uint16
+	Size             uint32
 	ArrivalTime      float32
 	StartServiceTime float32
 	DepartureTime    float32

@@ -100,29 +100,23 @@ func (mmq *MM1Queue) readTrace(traceFilename string) {
 			time, _ := strconv.ParseFloat(row[6], 32)
 			clientID, _ := strconv.Atoi(row[0])
 
-			for messageSize > 0 {
-				packetSize := mmq.options.MTU
-				if messageSize < int(mmq.options.MTU) {
-					packetSize = uint16(messageSize)
-				}
-				packet := Packet{
-					ArrivalTime: float32(time) + currentTime,
-					Size:        packetSize,
-					Id:          packetCounter,
-				}
-				event := Event{
-					Time:        packet.ArrivalTime,
-					RoundNumber: uint16(round),
-					ClientID:    uint16(clientID),
-					Packet:      &packet,
-					Type:        ARRIVAL,
-				}
-
-				heap.Push(mmq.events, &event)
-
-				packetCounter++
-				messageSize -= int(mmq.options.MTU)
+			packet := Packet{
+				ArrivalTime: float32(time) + currentTime,
+				Size:        uint32(messageSize),
+				Id:          packetCounter,
 			}
+
+			event := Event{
+				Time:        packet.ArrivalTime,
+				RoundNumber: uint16(round),
+				ClientID:    uint16(clientID),
+				Packet:      &packet,
+				Type:        ARRIVAL,
+			}
+
+			heap.Push(mmq.events, &event)
+
+			packetCounter++
 
 			// Update current time
 			for _, client := range clients {
