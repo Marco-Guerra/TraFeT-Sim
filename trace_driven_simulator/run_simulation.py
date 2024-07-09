@@ -46,17 +46,10 @@ class MM1QueueSimulator:
             for _, row in clients.iterrows():  # Iterate through each row in the dataframe
                 message_size:int = row['bytes_sended']
 
-                while message_size > 0:
-                    packet:Packet = None
-
-                    if message_size >= self.job_maxsize:
-                        packet = Packet(arrival_time=row['time'] + current_time, size=self.job_maxsize, packet_id=packet_counter) # Create a packet object
-                    else:
-                        packet = Packet(arrival_time=row['time'] + current_time, size=message_size, packet_id=packet_counter) # Create a packet object
+                packet = Packet(arrival_time=row['time'] + current_time, size=message_size, packet_id=packet_counter) # Create a packet object
                     
-                    heapq.heappush(self.events, (packet.arrival_time, round, row['client_id'], packet.id, packet, 'arrival'))  # Push packet arrival event into the heap
-                    packet_counter += 1
-                    message_size -= self.job_maxsize
+                heapq.heappush(self.events, (packet.arrival_time, round, row['client_id'], packet.id, packet, 'arrival'))  # Push packet arrival event into the heap
+                packet_counter += 1
                 
                 current_time += float(clients['time'].max()) + broadcast_delay
 

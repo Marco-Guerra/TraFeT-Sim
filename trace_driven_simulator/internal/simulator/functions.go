@@ -95,8 +95,10 @@ func (mmq *MM1Queue) readTrace(traceFilename string) {
 			}
 		}
 
+		var messageSize int = 0
+
 		for _, row := range clients {
-			messageSize, _ := strconv.Atoi(row[4])
+			messageSize, _ = strconv.Atoi(row[4])
 			time, _ := strconv.ParseFloat(row[6], 32)
 			clientID, _ := strconv.Atoi(row[0])
 
@@ -117,22 +119,56 @@ func (mmq *MM1Queue) readTrace(traceFilename string) {
 			heap.Push(mmq.events, &event)
 
 			packetCounter++
+		}
 
-			// Update current time
-			for _, client := range clients {
-				clientTime, _ := strconv.ParseFloat(client[6], 32)
-				if float32(clientTime) > currentTime {
-					currentTime = float32(clientTime)
+		switch mmq.options.FederatedScenario {
+		case CROSSDEVICE:
+			currentTime += CROSSDEVICEBROADCASTDELAY
+
+			for range clients {
+				packet := Packet{
+					ArrivalTime: currentTime,
+					Size:        uint32(messageSize),
+					Id:          packetCounter,
 				}
+
+				event := Event{
+					Time:        packet.ArrivalTime,
+					RoundNumber: uint16(round),
+					ClientID:    uint16(0), // 0 == ServerID
+					Packet:      &packet,
+					Type:        ARRIVAL,
+				}
+
+				heap.Push(mmq.events, &event)
+
+				packetCounter++
 			}
-			switch mmq.options.FederatedScenario {
-			case CROSSDEVICE:
-				currentTime += CROSSDEVICEBROADCASTDELAY
-			case CROSSSILO:
-				currentTime += CROSSSILOBROADCASTDELAY
+		case CROSSSILO:
+			// Assuming that all messages have the same size
+			// And crosssilo have a broadcast protocol implemented
+			currentTime += CROSSSILOBROADCASTDELAY
+
+			packet := Packet{
+				ArrivalTime: currentTime,
+				Size:        uint32(messageSize),
+				Id:          packetCounter,
 			}
+
+			event := Event{
+				Time:        packet.ArrivalTime,
+				RoundNumber: uint16(round),
+				ClientID:    uint16(0), // 0 == ServerID
+				Packet:      &packet,
+				Type:        ARRIVAL,
+			}
+
+			heap.Push(mmq.events, &event)
+
+			packetCounter++
 		}
 	}
+
 	mmq.maxQueue = uint16(math.Floor((float64(mmq.events.Len()) * 0.10)))
 	mmq.resultsWritter = writer.New(uint32(mmq.events.Len()), "metrics_network_"+leafExperimentMeta)
 }
