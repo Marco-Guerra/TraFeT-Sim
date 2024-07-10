@@ -121,6 +121,14 @@ func (mmq *MM1Queue) readTrace(traceFilename string) {
 			packetCounter++
 		}
 
+		// Update current time
+		for _, client := range clients {
+			clientTime, _ := strconv.ParseFloat(client[6], 32)
+			if float32(clientTime) > currentTime {
+				currentTime = float32(clientTime)
+			}
+		}
+
 		switch mmq.options.FederatedScenario {
 		case CROSSDEVICE:
 			currentTime += CROSSDEVICEBROADCASTDELAY
