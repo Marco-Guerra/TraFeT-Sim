@@ -18,6 +18,7 @@ const (
 )
 
 type GlobalOptions struct {
+	AllowBroadcast    bool
 	FederatedScenario TrainingScenario
 	MTU               uint16
 	Bandwidth         uint32

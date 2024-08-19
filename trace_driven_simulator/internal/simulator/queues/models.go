@@ -35,7 +35,6 @@ type Output struct {
 
 type GlobalOptions struct {
 	MaxQueue  uint16
-	MTU       uint16
 	Bandwidth uint32
 }
 

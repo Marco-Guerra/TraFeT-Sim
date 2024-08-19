@@ -134,7 +134,29 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		switch td.options.FederatedScenario {
 		case CROSSDEVICE:
 			currentTime += CROSSDEVICEBROADCASTDELAY
+		case CROSSSILO:
+			currentTime += CROSSSILOBROADCASTDELAY
+		}
 
+		if td.options.AllowBroadcast {
+			packet := queues.Packet{
+				ArrivalTime: currentTime,
+				Size:        uint32(messageSize),
+				Id:          packetCounter,
+			}
+
+			event := queues.Event{
+				Time:        packet.ArrivalTime,
+				RoundNumber: uint16(round),
+				ClientID:    uint16(0), // 0 == ServerID
+				Packet:      &packet,
+				Type:        queues.ARRIVAL,
+			}
+
+			heap.Push(&workload, &event)
+
+			packetCounter++
+		} else {
 			for range clients {
 				packet := queues.Packet{
 					ArrivalTime: currentTime,
@@ -154,28 +176,6 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 
 				packetCounter++
 			}
-		case CROSSSILO:
-			// Assuming that all messages have the same size
-			// And crosssilo have a broadcast protocol implemented
-			currentTime += CROSSSILOBROADCASTDELAY
-
-			packet := queues.Packet{
-				ArrivalTime: currentTime,
-				Size:        uint32(messageSize),
-				Id:          packetCounter,
-			}
-
-			event := queues.Event{
-				Time:        packet.ArrivalTime,
-				RoundNumber: uint16(round),
-				ClientID:    uint16(0), // 0 == ServerID
-				Packet:      &packet,
-				Type:        queues.ARRIVAL,
-			}
-
-			heap.Push(&workload, &event)
-
-			packetCounter++
 		}
 	}
 
@@ -183,7 +183,6 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 
 	queueOpt := queues.GlobalOptions{
 		MaxQueue:  uint16(math.Floor((float64(workload.Len()) * 0.10))),
-		MTU:       td.options.MTU,
 		Bandwidth: td.options.Bandwidth,
 	}
 
