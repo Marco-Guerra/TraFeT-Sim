@@ -15,7 +15,7 @@ def find_leaf_stats_files(directory:str, pattern:str) -> list[str]:
 
 
 def main():
-    SAMPLE_DIR_NAME="leaf_output/"
+    SAMPLE_DIR_NAME="leaf_output/femnist/sys/"
     OUTPUT_DIR_NAME="trace_driven_simulator/data/"
     LEAF_STATS_REGEX=r'metrics_sys_*'
     
@@ -53,14 +53,10 @@ def main():
         # A primeira coluna é sempre vazia e a segunda é igual a bytes_sended
         df = df.drop(["hierarchy", "bytes_written"], axis=1)
 
-        # Map client_id to unique integers
-        unique_client_ids = df["client_id"].unique()
-
-        for client_id in unique_client_ids:
-            if client_id not in client_id_map:
-                client_id_map[client_id] = client_id_counter
-                client_id_counter += 1
-        df["client_id"] = df["client_id"].map(client_id_map)
+        # Map client_id to unique integers based on round_number
+        df['client_id'] = df.groupby(['round_number'])['client_id'].transform(
+            lambda x: pd.factorize(x)[0] + 1
+        )
 
         splits = sys_stats.split("_")
 
