@@ -9,44 +9,44 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/internal/simulator/queues"
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/packages/writer"
 )
 
-func New(options *GlobalOptions) *MM1Queue {
-	return &MM1Queue{
-		options:        options,
-		queue:          make([]*Packet, 0),
-		events:         &EventHeap{},
-		resultsWritter: nil,
+func New(options *GlobalOptions) *TraceDriven {
+	return &TraceDriven{
+		options: options,
 	}
 }
 
-func (mmq *MM1Queue) RunSimulation(trace_filename string) {
-	mmq.readTrace(trace_filename)
+func (td *TraceDriven) RunSimulation(trace_filename string) {
+	td.readTrace(trace_filename)
 
-	mmq.processEvents()
+	go td.resultsWritter.Start()
 
-	mmq.resultsWritter.Close()
+	qout := td.queue.Start()
 
-	meanDelay, throughput := mmq.calculeMetrics()
+	td.resultsWritter.Close()
+
+	meanDelay, throughput := td.calculeMetrics(qout)
 
 	log.Printf("Mean Delay: %f seconds", meanDelay)
 	log.Printf("Throughput: %f bits per second", throughput)
 }
 
-func (mmq *MM1Queue) calculeMetrics() (float64, float32) {
-	meanDelay := mmq.totalDelay / float64(mmq.totalPackets)
+func (td *TraceDriven) calculeMetrics(results *queues.Output) (float64, float32) {
+	meanDelay := results.Delay / float64(results.NumPackets)
 
-	if mmq.currentTime <= 0 {
-		mmq.currentTime = 1
+	if results.SimTime <= 0 {
+		results.SimTime = 1
 	}
 
-	throughput := float32(mmq.totalBytes*8) / mmq.currentTime
+	throughput := float32(results.TotalBytes*8) / results.SimTime
 
 	return meanDelay, float32(math.Floor(float64(throughput)))
 }
 
-func (mmq *MM1Queue) readTrace(traceFilename string) {
+func (td *TraceDriven) readTrace(traceFilename string) {
 	parts := strings.Split(traceFilename, "_")
 	var leafExperimentMeta string
 
@@ -83,6 +83,8 @@ func (mmq *MM1Queue) readTrace(traceFilename string) {
 		}
 	}
 
+	workload := queues.EventHeap{}
+
 	for round := 1; round <= rounds; round++ {
 		var clients [][]string
 		for i, record := range records {
@@ -102,21 +104,21 @@ func (mmq *MM1Queue) readTrace(traceFilename string) {
 			time, _ := strconv.ParseFloat(row[6], 32)
 			clientID, _ := strconv.Atoi(row[0])
 
-			packet := Packet{
+			packet := queues.Packet{
 				ArrivalTime: float32(time) + currentTime,
 				Size:        uint32(messageSize),
 				Id:          packetCounter,
 			}
 
-			event := Event{
+			event := queues.Event{
 				Time:        packet.ArrivalTime,
 				RoundNumber: uint16(round),
 				ClientID:    uint16(clientID),
 				Packet:      &packet,
-				Type:        ARRIVAL,
+				Type:        queues.ARRIVAL,
 			}
 
-			heap.Push(mmq.events, &event)
+			heap.Push(&workload, &event)
 
 			packetCounter++
 		}
@@ -129,26 +131,26 @@ func (mmq *MM1Queue) readTrace(traceFilename string) {
 			}
 		}
 
-		switch mmq.options.FederatedScenario {
+		switch td.options.FederatedScenario {
 		case CROSSDEVICE:
 			currentTime += CROSSDEVICEBROADCASTDELAY
 
 			for range clients {
-				packet := Packet{
+				packet := queues.Packet{
 					ArrivalTime: currentTime,
 					Size:        uint32(messageSize),
 					Id:          packetCounter,
 				}
 
-				event := Event{
+				event := queues.Event{
 					Time:        packet.ArrivalTime,
 					RoundNumber: uint16(round),
 					ClientID:    uint16(0), // 0 == ServerID
 					Packet:      &packet,
-					Type:        ARRIVAL,
+					Type:        queues.ARRIVAL,
 				}
 
-				heap.Push(mmq.events, &event)
+				heap.Push(&workload, &event)
 
 				packetCounter++
 			}
@@ -157,106 +159,33 @@ func (mmq *MM1Queue) readTrace(traceFilename string) {
 			// And crosssilo have a broadcast protocol implemented
 			currentTime += CROSSSILOBROADCASTDELAY
 
-			packet := Packet{
+			packet := queues.Packet{
 				ArrivalTime: currentTime,
 				Size:        uint32(messageSize),
 				Id:          packetCounter,
 			}
 
-			event := Event{
+			event := queues.Event{
 				Time:        packet.ArrivalTime,
 				RoundNumber: uint16(round),
 				ClientID:    uint16(0), // 0 == ServerID
 				Packet:      &packet,
-				Type:        ARRIVAL,
+				Type:        queues.ARRIVAL,
 			}
 
-			heap.Push(mmq.events, &event)
+			heap.Push(&workload, &event)
 
 			packetCounter++
 		}
 	}
 
-	mmq.maxQueue = uint16(math.Floor((float64(mmq.events.Len()) * 0.10)))
-	mmq.resultsWritter = writer.New(uint32(mmq.events.Len()), "metrics_network_"+leafExperimentMeta)
-}
+	td.resultsWritter = writer.New(uint32(workload.Len()), "metrics_network_"+leafExperimentMeta)
 
-func (mmq *MM1Queue) processEvents() {
-	go mmq.resultsWritter.Start()
-
-	for mmq.events.Len() > 0 {
-		event := heap.Pop(mmq.events).(*Event)
-		mmq.currentTime = event.Time
-
-		switch event.Type {
-		case ARRIVAL:
-			qlen := len(mmq.queue)
-
-			if qlen == 0 || mmq.queue[qlen-1].DepartureTime <= event.Packet.ArrivalTime {
-				event.Packet.StartServiceTime = event.Packet.ArrivalTime
-			} else {
-				event.Packet.StartServiceTime = mmq.queue[qlen-1].DepartureTime
-			}
-
-			event.Packet.DepartureTime = event.Packet.StartServiceTime + (float32(event.Packet.Size)*8)/float32(mmq.options.Bandwidth)
-
-			heap.Push(mmq.events, &Event{
-				Time:        event.Packet.DepartureTime,
-				RoundNumber: event.RoundNumber,
-				ClientID:    event.ClientID,
-				Packet:      event.Packet,
-				Type:        DEPARTURE,
-			})
-
-			mmq.queue = append(mmq.queue, event.Packet)
-		case DEPARTURE:
-			individualDelay := event.Packet.DepartureTime - event.Packet.ArrivalTime
-			mmq.totalBytes += uint64(event.Packet.Size)
-			mmq.totalDelay += float64(individualDelay)
-			mmq.totalPackets += 1
-
-			mmq.resultsWritter.Write(&writer.WriterRegister{
-				ClientID:    event.ClientID,
-				RoundNumber: event.RoundNumber,
-				Time:        mmq.currentTime,
-				Delay:       individualDelay,
-				Size:        event.Packet.Size,
-			})
-
-			log.Printf(
-				"Arrived %f : Departed %f : Delay %f : Size %d\n",
-				event.Packet.ArrivalTime,
-				event.Packet.DepartureTime,
-				individualDelay,
-				event.Packet.Size,
-			)
-
-			qlen := len(mmq.queue)
-
-			if qlen >= int(mmq.maxQueue) {
-				index := -1
-				low := 0
-				high := qlen - 1
-
-				for low <= high {
-					mid := (low + high) / 2
-
-					if mmq.queue[mid].DepartureTime == mmq.currentTime {
-						index = mid
-						break
-					} else if mmq.queue[mid].DepartureTime < mmq.currentTime {
-						low = mid + 1
-					} else {
-						high = mid - 1
-					}
-				}
-
-				if index > 1 {
-					mmq.queue = mmq.queue[index:]
-				}
-			}
-		default:
-			log.Fatal("Unkown Event on the Event list. ", event)
-		}
+	queueOpt := queues.GlobalOptions{
+		MaxQueue:  uint16(math.Floor((float64(workload.Len()) * 0.10))),
+		MTU:       td.options.MTU,
+		Bandwidth: td.options.Bandwidth,
 	}
+
+	td.queue = queues.New(&queueOpt, &workload, td.resultsWritter)
 }
