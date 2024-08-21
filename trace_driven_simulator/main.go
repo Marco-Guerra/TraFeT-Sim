@@ -11,7 +11,6 @@ func main() {
 	bandwidthBps := flag.Uint("b", 40000000, "Bandwidth of the simulated network")
 	traceFile := flag.String("t", "", "Trace file that describe the network workload during the simulation")
 	mtu := flag.Uint("mtu", 1500, "MTU of the packets in the network")
-	broadcast := flag.Bool("allow-broadcast", false, "Allow server model seed with broadcast")
 	federatedScenario := flag.Uint("fs", 0, "type of federated learning scenario: cross silo or cross-device")
 
 	flag.Parse()
@@ -24,7 +23,6 @@ func main() {
 		Bandwidth:         uint32(*bandwidthBps),
 		MTU:               uint16(*mtu),
 		FederatedScenario: simulator.TrainingScenario(*federatedScenario),
-		AllowBroadcast:    *broadcast,
 	})
 
 	traceDrivenSimulator.RunSimulation(*traceFile)

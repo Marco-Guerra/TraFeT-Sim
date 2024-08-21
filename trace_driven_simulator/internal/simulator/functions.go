@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/internal/simulator/queues"
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/packages/writer"
@@ -16,6 +17,7 @@ import (
 func New(options *GlobalOptions) *TraceDriven {
 	return &TraceDriven{
 		options: options,
+		queues:  nil,
 	}
 }
 
@@ -24,14 +26,27 @@ func (td *TraceDriven) RunSimulation(trace_filename string) {
 
 	go td.resultsWritter.Start()
 
-	qout := td.queue.Start()
+	qwg := sync.WaitGroup{}
+
+	qwg.Add(len(td.queues))
+
+	for i := range td.queues {
+		go func(qid int) {
+			qout := td.queues[qid].Start()
+
+			meanDelay, throughput := td.calculeMetrics(qout)
+
+			log.Printf("Client %d Metrics\n", qid+1)
+			log.Printf("Mean Delay: %f seconds", meanDelay)
+			log.Printf("Throughput: %f bits per second", throughput)
+
+			qwg.Done()
+		}(i)
+	}
+
+	qwg.Wait()
 
 	td.resultsWritter.Close()
-
-	meanDelay, throughput := td.calculeMetrics(qout)
-
-	log.Printf("Mean Delay: %f seconds", meanDelay)
-	log.Printf("Throughput: %f bits per second", throughput)
 }
 
 func (td *TraceDriven) calculeMetrics(results *queues.Output) (float64, float32) {
@@ -83,7 +98,29 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		}
 	}
 
-	workload := queues.EventHeap{}
+	// Find the number of clients
+	nclients := 0
+	lastNClients := 0
+	for i, record := range records {
+		if i == 0 {
+			continue // Skip header
+		}
+
+		clientID, _ := strconv.Atoi(record[0])
+		if clientID > nclients {
+			lastNClients = nclients
+			nclients = clientID
+		}
+
+		if lastNClients == nclients {
+			break
+		}
+	}
+
+	log.Println(nclients)
+
+	dqueues := make([]*queues.MM1Queue, nclients)
+	workloads := make([]queues.EventHeap, nclients)
 
 	for round := 1; round <= rounds; round++ {
 		var clients [][]string
@@ -118,7 +155,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 				Type:        queues.ARRIVAL,
 			}
 
-			heap.Push(&workload, &event)
+			heap.Push(&workloads[clientID-1], &event)
 
 			packetCounter++
 		}
@@ -138,53 +175,37 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 			currentTime += CROSSSILOBROADCASTDELAY
 		}
 
-		if td.options.AllowBroadcast {
-			packet := queues.Packet{
-				ArrivalTime: currentTime,
-				Size:        uint32(messageSize),
-				Id:          packetCounter,
-			}
-
-			event := queues.Event{
-				Time:        packet.ArrivalTime,
-				RoundNumber: uint16(round),
-				ClientID:    uint16(0), // 0 == ServerID
-				Packet:      &packet,
-				Type:        queues.ARRIVAL,
-			}
-
-			heap.Push(&workload, &event)
-
-			packetCounter++
-		} else {
-			for range clients {
-				packet := queues.Packet{
-					ArrivalTime: currentTime,
-					Size:        uint32(messageSize),
-					Id:          packetCounter,
-				}
-
-				event := queues.Event{
-					Time:        packet.ArrivalTime,
-					RoundNumber: uint16(round),
-					ClientID:    uint16(0), // 0 == ServerID
-					Packet:      &packet,
-					Type:        queues.ARRIVAL,
-				}
-
-				heap.Push(&workload, &event)
-
-				packetCounter++
-			}
+		packet := queues.Packet{
+			ArrivalTime: currentTime,
+			Size:        uint32(messageSize),
+			Id:          packetCounter,
 		}
+
+		event := queues.Event{
+			Time:        packet.ArrivalTime,
+			RoundNumber: uint16(round),
+			ClientID:    uint16(0), // 0 == ServerID
+			Packet:      &packet,
+			Type:        queues.ARRIVAL,
+		}
+
+		for i := range workloads {
+			heap.Push(&workloads[i], &event)
+		}
+
+		packetCounter++
 	}
 
-	td.resultsWritter = writer.New(uint32(workload.Len()), "metrics_network_"+leafExperimentMeta)
+	td.resultsWritter = writer.New(uint32(packetCounter), "metrics_network_"+leafExperimentMeta)
 
-	queueOpt := queues.GlobalOptions{
-		MaxQueue:  uint16(math.Floor((float64(workload.Len()) * 0.10))),
-		Bandwidth: td.options.Bandwidth,
+	for i := range dqueues {
+		queueOpt := queues.GlobalOptions{
+			MaxQueue:  uint16(math.Floor((float64(workloads[i].Len()) * 0.10))),
+			Bandwidth: td.options.Bandwidth,
+		}
+
+		dqueues[i] = queues.New(&queueOpt, &workloads[i], td.resultsWritter)
 	}
 
-	td.queue = queues.New(&queueOpt, &workload, td.resultsWritter)
+	td.queues = dqueues
 }

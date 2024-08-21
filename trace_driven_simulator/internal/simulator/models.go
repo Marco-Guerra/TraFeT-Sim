@@ -18,7 +18,6 @@ const (
 )
 
 type GlobalOptions struct {
-	AllowBroadcast    bool
 	FederatedScenario TrainingScenario
 	MTU               uint16
 	Bandwidth         uint32
@@ -26,6 +25,6 @@ type GlobalOptions struct {
 
 type TraceDriven struct {
 	options        *GlobalOptions
-	queue          *queues.MM1Queue
+	queues         []*queues.MM1Queue
 	resultsWritter *writer.Writer
 }
