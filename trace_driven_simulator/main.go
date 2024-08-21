@@ -8,7 +8,8 @@ import (
 )
 
 func main() {
-	bandwidthBps := flag.Uint("b", 40000000, "Bandwidth of the simulated network")
+	minBandwidthBps := flag.Uint("min-b", 10000, "Minimum device bandwidth of the simulated network")
+	maxBandwidthBps := flag.Uint("max-b", 40000000, "Max device bandwidth of the simulated network")
 	traceFile := flag.String("t", "", "Trace file that describe the network workload during the simulation")
 	mtu := flag.Uint("mtu", 1500, "MTU of the packets in the network")
 	federatedScenario := flag.Uint("fs", 0, "type of federated learning scenario: cross silo or cross-device")
@@ -20,7 +21,8 @@ func main() {
 	}
 
 	traceDrivenSimulator := simulator.New(&simulator.GlobalOptions{
-		Bandwidth:         uint32(*bandwidthBps),
+		MinBandwidth:      uint32(*minBandwidthBps),
+		MaxBandwidth:      uint32(*maxBandwidthBps),
 		MTU:               uint16(*mtu),
 		FederatedScenario: simulator.TrainingScenario(*federatedScenario),
 	})

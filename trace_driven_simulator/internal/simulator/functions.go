@@ -5,10 +5,12 @@ import (
 	"encoding/csv"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/internal/simulator/queues"
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/packages/writer"
@@ -117,8 +119,6 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		}
 	}
 
-	log.Println(nclients)
-
 	dqueues := make([]*queues.MM1Queue, nclients)
 	workloads := make([]queues.EventHeap, nclients)
 
@@ -197,11 +197,12 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 	}
 
 	td.resultsWritter = writer.New(uint32(packetCounter), "metrics_network_"+leafExperimentMeta)
+	rng := rand.New(rand.NewSource(time.Now().Unix())) // setar uma seed depois
 
 	for i := range dqueues {
 		queueOpt := queues.GlobalOptions{
 			MaxQueue:  uint16(math.Floor((float64(workloads[i].Len()) * 0.10))),
-			Bandwidth: td.options.Bandwidth,
+			Bandwidth: td.options.MinBandwidth + uint32(rng.Int31n(int32(td.options.MaxBandwidth))-int32(td.options.MinBandwidth)+1),
 		}
 
 		dqueues[i] = queues.New(&queueOpt, &workloads[i], td.resultsWritter)

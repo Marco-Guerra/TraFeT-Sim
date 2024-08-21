@@ -20,7 +20,8 @@ const (
 type GlobalOptions struct {
 	FederatedScenario TrainingScenario
 	MTU               uint16
-	Bandwidth         uint32
+	MinBandwidth      uint32
+	MaxBandwidth      uint32
 }
 
 type TraceDriven struct {
