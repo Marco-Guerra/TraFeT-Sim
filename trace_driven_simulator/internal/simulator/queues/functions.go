@@ -70,14 +70,6 @@ func (mmq *MM1Queue) processEvents() (int, uint64, float64) {
 				Size:        event.Packet.Size,
 			})
 
-			log.Printf(
-				"Arrived %f : Departed %f : Delay %f : Size %d\n",
-				event.Packet.ArrivalTime,
-				event.Packet.DepartureTime,
-				individualDelay,
-				event.Packet.Size,
-			)
-
 			qlen := len(mmq.queue)
 
 			if qlen >= int(mmq.options.MaxQueue) {

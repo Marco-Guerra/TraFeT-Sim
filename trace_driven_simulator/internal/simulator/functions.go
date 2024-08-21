@@ -174,30 +174,34 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		case CROSSSILO:
 			currentTime += CROSSSILOBROADCASTDELAY
 		}
-
-		packet := queues.Packet{
-			ArrivalTime: currentTime,
-			Size:        uint32(messageSize),
-			Id:          packetCounter,
-		}
-
-		event := queues.Event{
-			Time:        packet.ArrivalTime,
-			RoundNumber: uint16(round),
-			ClientID:    uint16(0), // 0 == ServerID
-			Packet:      &packet,
-			Type:        queues.ARRIVAL,
-		}
-
-		for i := range workloads {
-			heap.Push(&workloads[i], &event)
-		}
-
-		packetCounter++
 	}
 
 	td.resultsWritter = writer.New(uint32(packetCounter), "metrics_network_"+leafExperimentMeta)
 	rng := rand.New(rand.NewSource(time.Now().Unix())) // setar uma seed depois
+
+	arrivalInterval := float32(5.0 + rng.Float64()*(10.0-5.0)) // achar valores melhores
+
+	for i := range workloads {
+		for localtime := 0.0; localtime < float64(currentTime); localtime += float64(arrivalInterval) {
+			packet := queues.Packet{
+				ArrivalTime: float32(localtime) + arrivalInterval,
+				Size:        5000,
+				Id:          packetCounter,
+			}
+
+			event := queues.Event{
+				Time:        packet.ArrivalTime,
+				RoundNumber: 6666,
+				ClientID:    4096,
+				Packet:      &packet,
+				Type:        queues.ARRIVAL,
+			}
+
+			heap.Push(&workloads[i], &event)
+
+			packetCounter++
+		}
+	}
 
 	for i := range dqueues {
 		queueOpt := queues.GlobalOptions{
