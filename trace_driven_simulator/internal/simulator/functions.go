@@ -3,9 +3,9 @@ package simulator
 import (
 	"container/heap"
 	"encoding/csv"
+	"fmt"
 	"log"
 	"math"
-	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -14,6 +14,8 @@ import (
 
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/internal/simulator/queues"
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/packages/writer"
+	"golang.org/x/exp/rand"
+	"gonum.org/v1/gonum/stat/distuv"
 )
 
 func New(options *GlobalOptions) *TraceDriven {
@@ -38,9 +40,13 @@ func (td *TraceDriven) RunSimulation(trace_filename string) {
 
 			meanDelay, throughput := td.calculeMetrics(qout)
 
-			log.Printf("Client %d Metrics\n", qid+1)
-			log.Printf("Mean Delay: %f seconds", meanDelay)
-			log.Printf("Throughput: %f bits per second", throughput)
+			resultString := fmt.Sprintf("\nClient %d Metrics\nMean Delay: %f seconds\nThroughput: %f bits per second\n",
+				qid+1,
+				meanDelay,
+				throughput,
+			)
+
+			log.Print(resultString)
 
 			qwg.Done()
 		}(i)
@@ -177,21 +183,26 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 	}
 
 	td.resultsWritter = writer.New(uint32(packetCounter), "metrics_network_"+leafExperimentMeta)
-	rng := rand.New(rand.NewSource(time.Now().Unix())) // setar uma seed depois
+	seed := uint64(time.Now().Unix())
+	rng := rand.New(rand.NewSource(seed))
 
-	arrivalInterval := float32(5.0 + rng.Float64()*(10.0-5.0)) // achar valores melhores
+	rngArrival := distuv.Exponential{
+		Rate: 1, // entrada do usuário
+		Src:  rand.NewSource(seed),
+	}
 
 	for i := range workloads {
-		for localtime := 0.0; localtime < float64(currentTime); localtime += float64(arrivalInterval) {
+		var arrivalInterval float64 = 0
+		for localtime := 0.0; localtime <= float64(currentTime); localtime += arrivalInterval {
 			packet := queues.Packet{
-				ArrivalTime: float32(localtime) + arrivalInterval,
-				Size:        5000,
+				ArrivalTime: float32(localtime),
+				Size:        64 + uint32(rng.Int31n(1518-64+1)), // Distribuição uniforme
 				Id:          packetCounter,
 			}
 
 			event := queues.Event{
 				Time:        packet.ArrivalTime,
-				RoundNumber: 6666,
+				RoundNumber: 1001,
 				ClientID:    4096,
 				Packet:      &packet,
 				Type:        queues.ARRIVAL,
@@ -200,13 +211,15 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 			heap.Push(&workloads[i], &event)
 
 			packetCounter++
+
+			arrivalInterval = rngArrival.Rand()
 		}
 	}
 
 	for i := range dqueues {
 		queueOpt := queues.GlobalOptions{
 			MaxQueue:  uint16(math.Floor((float64(workloads[i].Len()) * 0.10))),
-			Bandwidth: td.options.MinBandwidth + uint32(rng.Int31n(int32(td.options.MaxBandwidth))-int32(td.options.MinBandwidth)+1),
+			Bandwidth: td.options.MinBandwidth + uint32(rng.Int31n(int32(td.options.MaxBandwidth))-int32(td.options.MinBandwidth)+1), // Achar valores mais reais
 		}
 
 		dqueues[i] = queues.New(&queueOpt, &workloads[i], td.resultsWritter)
