@@ -53,8 +53,8 @@ func (w *Writer) write() {
 		tempString := fmt.Sprintf("%d,%d,%.3f,%.3f,%d",
 			w.aggregationBuffer[rid].ClientID,
 			w.aggregationBuffer[rid].RoundNumber,
-			w.aggregationBuffer[rid].Time,
-			w.aggregationBuffer[rid].Delay,
+			w.aggregationBuffer[rid].ArrivalTime,
+			w.aggregationBuffer[rid].DepartureTime,
 			w.aggregationBuffer[rid].Size,
 		)
 

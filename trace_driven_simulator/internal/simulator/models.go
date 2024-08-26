@@ -5,23 +5,18 @@ import (
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/packages/writer"
 )
 
-type TrainingScenario uint8
-
 const (
-	CROSSSILO   TrainingScenario = 0
-	CROSSDEVICE TrainingScenario = 1
-)
-
-const (
-	CROSSSILOBROADCASTDELAY   float32 = 0.805
-	CROSSDEVICEBROADCASTDELAY float32 = 800
+	SYNC_TIME               float32 = 180
+	SERVER_AGG_RATE         float32 = 1
+	BACKGROUND_TRAFFIC_RATE float64 = 100
 )
 
 type GlobalOptions struct {
-	FederatedScenario TrainingScenario
-	MTU               uint16
-	MinBandwidth      uint32
-	MaxBandwidth      uint32
+	MTU                 uint16
+	MinBandwidth        uint32
+	MaxBandwidth        uint32
+	MinAggregationDelay float32
+	MaxAggregationDelay float32
 }
 
 type TraceDriven struct {

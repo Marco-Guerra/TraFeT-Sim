@@ -63,11 +63,11 @@ func (mmq *MM1Queue) processEvents() (int, uint64, float64) {
 			totalDelay += float64(individualDelay)
 
 			mmq.resultsWritter.Write(&writer.WriterRegister{
-				ClientID:    event.ClientID,
-				RoundNumber: event.RoundNumber,
-				Time:        mmq.currentTime,
-				Delay:       individualDelay,
-				Size:        event.Packet.Size,
+				ClientID:      event.ClientID,
+				RoundNumber:   event.RoundNumber,
+				ArrivalTime:   event.ArrivalTime,
+				DepartureTime: event.DepartureTime,
+				Size:          event.Packet.Size,
 			})
 
 			qlen := len(mmq.queue)

@@ -3,11 +3,11 @@ package writer
 import "encoding/csv"
 
 type WriterRegister struct {
-	ClientID    uint16
-	RoundNumber uint16
-	Size        uint32
-	Time        float32
-	Delay       float32
+	ClientID      uint16
+	RoundNumber   uint16
+	Size          uint32
+	ArrivalTime   float32
+	DepartureTime float32
 }
 
 type Writer struct {

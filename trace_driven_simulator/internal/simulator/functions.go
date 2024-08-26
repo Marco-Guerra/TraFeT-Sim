@@ -15,7 +15,6 @@ import (
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/internal/simulator/queues"
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/packages/writer"
 	"golang.org/x/exp/rand"
-	"gonum.org/v1/gonum/stat/distuv"
 )
 
 func New(options *GlobalOptions) *TraceDriven {
@@ -90,6 +89,9 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 	if err != nil {
 		log.Fatal("Error reading CSV file:", err)
 	}
+
+	seed := uint64(time.Now().Unix())
+	rng := rand.New(rand.NewSource(seed))
 
 	var packetCounter uint64 = 0
 	var currentTime float32 = 0.0
@@ -174,22 +176,15 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 			}
 		}
 
-		switch td.options.FederatedScenario {
-		case CROSSDEVICE:
-			currentTime += CROSSDEVICEBROADCASTDELAY
-		case CROSSSILO:
-			currentTime += CROSSSILOBROADCASTDELAY
-		}
+		a := td.options.MinAggregationDelay
+		b := td.options.MaxAggregationDelay
+
+		aggregationDelay := a + (b-a)*(-float32(math.Log(rand.Float64()))/SERVER_AGG_RATE)
+
+		currentTime += SYNC_TIME + aggregationDelay
 	}
 
 	td.resultsWritter = writer.New(uint32(packetCounter), "metrics_network_"+leafExperimentMeta)
-	seed := uint64(time.Now().Unix())
-	rng := rand.New(rand.NewSource(seed))
-
-	rngArrival := distuv.Exponential{
-		Rate: 1, // entrada do usuário
-		Src:  rand.NewSource(seed),
-	}
 
 	for i := range workloads {
 		var arrivalInterval float64 = 0
@@ -212,7 +207,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 
 			packetCounter++
 
-			arrivalInterval = rngArrival.Rand()
+			arrivalInterval = float64(currentTime) * (-math.Log(rand.Float64()) / BACKGROUND_TRAFFIC_RATE)
 		}
 	}
 
