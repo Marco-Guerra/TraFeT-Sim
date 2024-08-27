@@ -191,7 +191,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		for localtime := 0.0; localtime <= float64(currentTime); localtime += arrivalInterval {
 			packet := queues.Packet{
 				ArrivalTime: float32(localtime),
-				Size:        64 + uint32(rng.Int31n(1518-64+1)), // Distribuição uniforme
+				Size:        64 + rng.Uint32()%(1518-64+1), // Distribuição uniforme
 				Id:          packetCounter,
 			}
 
@@ -214,7 +214,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 	for i := range dqueues {
 		queueOpt := queues.GlobalOptions{
 			MaxQueue:  uint16(math.Floor((float64(workloads[i].Len()) * 0.10))),
-			Bandwidth: td.options.MinBandwidth + uint32(rng.Int31n(int32(td.options.MaxBandwidth))-int32(td.options.MinBandwidth)+1), // Achar valores mais reais
+			Bandwidth: td.options.MinBandwidth + rng.Uint32()%(td.options.MaxBandwidth-td.options.MinBandwidth+1), // Achar valores mais reais
 		}
 
 		dqueues[i] = queues.New(&queueOpt, &workloads[i], td.resultsWritter)
