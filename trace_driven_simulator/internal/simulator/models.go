@@ -7,16 +7,15 @@ import (
 
 const (
 	SYNC_TIME               float32 = 180
-	SERVER_AGG_RATE         float32 = 1
+	SERVER_AGG_TIME         float32 = 60
+	DOWNLINK_TIME           float32 = 30
 	BACKGROUND_TRAFFIC_RATE float64 = 100
 )
 
 type GlobalOptions struct {
-	MTU                 uint16
-	MinBandwidth        uint32
-	MaxBandwidth        uint32
-	MinAggregationDelay float32
-	MaxAggregationDelay float32
+	MinBandwidth uint32
+	MaxBandwidth uint32
+	MTU          uint16
 }
 
 type TraceDriven struct {

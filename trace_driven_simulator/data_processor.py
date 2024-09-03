@@ -25,14 +25,6 @@ def main():
 
     args = parser.parse_args()
 
-    SAMPLE_DIR_NAME="leaf_output/femnist/sys/"
-    OUTPUT_DIR_NAME="trace_driven_simulator/data/"
-    LEAF_STATS_REGEX=r'metrics_sys_*'
-    
-    # Cenário Otimista
-    CROSSILO_PROCESSOR_THROUGHPUT = 15000 * 10**9 # Assumindo uma NVIDIA Tesla
-    CROSSDEVICE_PROCESSOR_THROUGHPUT = 700 * 10**9 # Assumindo um Adreno 660
-
     print("Colleting system metrics from the given directory...")
 
     try:

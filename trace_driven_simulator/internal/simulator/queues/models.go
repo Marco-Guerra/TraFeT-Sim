@@ -36,6 +36,7 @@ type Output struct {
 type GlobalOptions struct {
 	MaxQueue  uint16
 	Bandwidth uint32
+	_         [3]byte
 }
 
 type MM1Queue struct {

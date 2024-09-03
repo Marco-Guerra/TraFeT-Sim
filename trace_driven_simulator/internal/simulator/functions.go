@@ -176,12 +176,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 			}
 		}
 
-		a := td.options.MinAggregationDelay
-		b := td.options.MaxAggregationDelay
-
-		aggregationDelay := a + (b-a)*(-float32(math.Log(rand.Float64()))/SERVER_AGG_RATE)
-
-		currentTime += SYNC_TIME + aggregationDelay
+		currentTime += SYNC_TIME + SERVER_AGG_TIME + DOWNLINK_TIME
 	}
 
 	td.resultsWritter = writer.New(uint32(packetCounter), "metrics_network_"+leafExperimentMeta)
