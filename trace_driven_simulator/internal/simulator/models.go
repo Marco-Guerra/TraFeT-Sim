@@ -20,6 +20,6 @@ type GlobalOptions struct {
 
 type TraceDriven struct {
 	options        *GlobalOptions
-	queues         []*queues.MM1Queue
+	queues         []*queues.EventQueue
 	resultsWritter *writer.Writer
 }

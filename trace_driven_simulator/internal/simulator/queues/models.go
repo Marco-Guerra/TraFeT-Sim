@@ -39,7 +39,7 @@ type GlobalOptions struct {
 	_         [3]byte
 }
 
-type MM1Queue struct {
+type EventQueue struct {
 	options        *GlobalOptions
 	queue          []*Packet
 	events         *EventHeap

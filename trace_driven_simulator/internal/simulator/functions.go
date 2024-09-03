@@ -127,7 +127,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		}
 	}
 
-	dqueues := make([]*queues.MM1Queue, nclients)
+	dqueues := make([]*queues.EventQueue, nclients)
 	workloads := make([]queues.EventHeap, nclients)
 
 	for round := 1; round <= rounds; round++ {

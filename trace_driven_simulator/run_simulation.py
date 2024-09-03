@@ -17,7 +17,7 @@ class Packet:
         self.departure_time = None  # Time when the packet leaves the queue
         self.id = packet_id
 
-class MM1QueueSimulator:
+class EventQueueSimulator:
     def __init__(self, bandwidth_bps:int, mtu:int):
         self.queue:list[Packet] = []  # A list to store packets currently in the queue
         self.job_maxsize:int = mtu
@@ -110,7 +110,7 @@ def main():
     MTU:int = int(arguments.mtu)
     BROADCAST_DELAY:float = CROSSDEVICE_BROADCAST_DELAY if arguments.federated_scenario and arguments.federated_scenario == "CROSSDEVICE" else CROSSSILO_BROADCAST_DELAY
 
-    simulator = MM1QueueSimulator(bandwidth_bps=BANDWIDTH_BPS, mtu=MTU)
+    simulator = EventQueueSimulator(bandwidth_bps=BANDWIDTH_BPS, mtu=MTU)
     mean_delay, throughput = simulator.run_simulation(TRACEFILE, BROADCAST_DELAY)
 
     print(f"Mean Delay: {mean_delay} seconds")
