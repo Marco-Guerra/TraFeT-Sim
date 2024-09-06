@@ -1,7 +1,6 @@
 package simulator
 
 import (
-	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/internal/simulator/queues"
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/packages/writer"
 )
 
@@ -20,6 +19,5 @@ type GlobalOptions struct {
 
 type TraceDriven struct {
 	options        *GlobalOptions
-	queues         []*queues.EventQueue
 	resultsWritter *writer.Writer
 }

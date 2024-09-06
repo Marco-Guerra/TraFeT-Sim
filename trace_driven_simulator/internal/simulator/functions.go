@@ -20,38 +20,11 @@ import (
 func New(options *GlobalOptions) *TraceDriven {
 	return &TraceDriven{
 		options: options,
-		queues:  nil,
 	}
 }
 
 func (td *TraceDriven) RunSimulation(trace_filename string) {
 	td.readTrace(trace_filename)
-
-	go td.resultsWritter.Start()
-
-	qwg := sync.WaitGroup{}
-
-	qwg.Add(len(td.queues))
-
-	for i := range td.queues {
-		go func(qid int) {
-			qout := td.queues[qid].Start()
-
-			meanDelay, throughput := td.calculeMetrics(qout)
-
-			resultString := fmt.Sprintf("\nClient %d Metrics\nMean Delay: %f seconds\nThroughput: %f bits per second\n",
-				qid+1,
-				meanDelay,
-				throughput,
-			)
-
-			log.Print(resultString)
-
-			qwg.Done()
-		}(i)
-	}
-
-	qwg.Wait()
 
 	td.resultsWritter.Close()
 }
@@ -95,6 +68,8 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 
 	var packetCounter uint64 = 0
 	var currentTime float32 = 0.0
+	var previousTime float32 = 0.0
+	var tmutex sync.Mutex = sync.Mutex{}
 
 	// Find the maximum round number
 	rounds := 0
@@ -127,11 +102,15 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		}
 	}
 
-	dqueues := make([]*queues.EventQueue, nclients)
-	workloads := make([]queues.EventHeap, nclients)
+	td.resultsWritter = writer.New(uint32(len(records)), "metrics_network_"+leafExperimentMeta)
+
+	go td.resultsWritter.Start()
 
 	for round := 1; round <= rounds; round++ {
 		var clients [][]string
+		dqueues := make([]*queues.EventQueue, nclients)
+		workloads := make([]queues.EventHeap, nclients)
+
 		for i, record := range records {
 			if i == 0 {
 				continue // Skip header
@@ -168,6 +147,8 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 			packetCounter++
 		}
 
+		previousTime = currentTime
+
 		// Update current time
 		for _, client := range clients {
 			clientTime, _ := strconv.ParseFloat(client[6], 32)
@@ -177,43 +158,72 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		}
 
 		currentTime += SYNC_TIME + SERVER_AGG_TIME + DOWNLINK_TIME
-	}
 
-	td.resultsWritter = writer.New(uint32(packetCounter), "metrics_network_"+leafExperimentMeta)
+		for i := range workloads {
+			var arrivalInterval float64 = 0
+			for localtime := float64(previousTime); localtime <= float64(currentTime); localtime += arrivalInterval {
+				packet := queues.Packet{
+					ArrivalTime: float32(localtime),
+					Size:        64 + rng.Uint32()%(1518-64+1), // Distribuição uniforme
+					Id:          packetCounter,
+				}
 
-	for i := range workloads {
-		var arrivalInterval float64 = 0
-		for localtime := 0.0; localtime <= float64(currentTime); localtime += arrivalInterval {
-			packet := queues.Packet{
-				ArrivalTime: float32(localtime),
-				Size:        64 + rng.Uint32()%(1518-64+1), // Distribuição uniforme
-				Id:          packetCounter,
+				event := queues.Event{
+					Time:        packet.ArrivalTime,
+					RoundNumber: 1001,
+					ClientID:    4096,
+					Packet:      &packet,
+					Type:        queues.ARRIVAL,
+				}
+
+				heap.Push(&workloads[i], &event)
+
+				packetCounter++
+
+				arrivalInterval = float64(previousTime) + float64(currentTime-previousTime)*(-math.Log(1-rand.Float64())/BACKGROUND_TRAFFIC_RATE)
 			}
-
-			event := queues.Event{
-				Time:        packet.ArrivalTime,
-				RoundNumber: 1001,
-				ClientID:    4096,
-				Packet:      &packet,
-				Type:        queues.ARRIVAL,
-			}
-
-			heap.Push(&workloads[i], &event)
-
-			packetCounter++
-
-			arrivalInterval = float64(currentTime) * (-math.Log(rand.Float64()) / BACKGROUND_TRAFFIC_RATE)
-		}
-	}
-
-	for i := range dqueues {
-		queueOpt := queues.GlobalOptions{
-			MaxQueue:  uint16(math.Floor((float64(workloads[i].Len()) * 0.10))),
-			Bandwidth: td.options.MinBandwidth + rng.Uint32()%(td.options.MaxBandwidth-td.options.MinBandwidth+1), // Achar valores mais reais
 		}
 
-		dqueues[i] = queues.New(&queueOpt, &workloads[i], td.resultsWritter)
-	}
+		for i := range dqueues {
+			queueOpt := queues.GlobalOptions{
+				MaxQueue:  uint16(math.Floor((float64(workloads[i].Len()) * 0.10))),
+				Bandwidth: td.options.MinBandwidth + rng.Uint32()%(td.options.MaxBandwidth-td.options.MinBandwidth+1), // Achar valores mais reais
+			}
 
-	td.queues = dqueues
+			dqueues[i] = queues.New(&queueOpt, &workloads[i], td.resultsWritter)
+		}
+
+		qwg := sync.WaitGroup{}
+
+		qwg.Add(nclients)
+
+		log.Printf("\nRound %d\n", round)
+
+		for i := range nclients {
+			go func(qid int) {
+				qout := dqueues[qid].Start()
+
+				tmutex.Lock()
+				if qout.SimTime > currentTime {
+					previousTime = currentTime
+					currentTime = qout.SimTime
+				}
+				tmutex.Unlock()
+
+				meanDelay, throughput := td.calculeMetrics(qout)
+
+				resultString := fmt.Sprintf("\nClient %d Metrics\nMean Delay: %f seconds\nThroughput: %f bits per second\n",
+					qid+1,
+					meanDelay,
+					throughput,
+				)
+
+				log.Print(resultString)
+
+				qwg.Done()
+			}(i)
+		}
+
+		qwg.Wait()
+	}
 }

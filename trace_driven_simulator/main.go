@@ -8,8 +8,8 @@ import (
 )
 
 func main() {
-	minBandwidthBps := flag.Uint("min-b", 200000, "Minimum device bandwidth of the simulated network")
-	maxBandwidthBps := flag.Uint("max-b", 400000, "Max device bandwidth of the simulated network")
+	minBandwidthBps := flag.Uint("min-b", 2000000, "Minimum device bandwidth of the simulated network")
+	maxBandwidthBps := flag.Uint("max-b", 4000000, "Max device bandwidth of the simulated network")
 	traceFile := flag.String("t", "", "Trace file that describe the network workload during the simulation")
 	mtu := flag.Uint("mtu", 1500, "MTU of the packets in the network")
 
@@ -26,5 +26,4 @@ func main() {
 	})
 
 	traceDrivenSimulator.RunSimulation(*traceFile)
-
 }
