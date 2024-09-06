@@ -9,6 +9,13 @@ const (
 	DEPARTURE EventType = 1
 )
 
+type NetType uint8
+
+const (
+	SERVER NetType = 0
+	CLIENT NetType = 1
+)
+
 type Packet struct {
 	Size             uint32
 	ArrivalTime      float32
@@ -31,9 +38,11 @@ type Output struct {
 	SimTime    float32
 	Delay      float64
 	TotalBytes uint64
+	Workload   *EventHeap
 }
 
 type GlobalOptions struct {
+	NetType
 	MaxQueue  uint16
 	Bandwidth uint32
 	_         [3]byte

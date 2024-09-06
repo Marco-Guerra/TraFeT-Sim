@@ -106,10 +106,20 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 
 	go td.resultsWritter.Start()
 
+	queuesOPT := make([]*queues.GlobalOptions, nclients)
+
+	for i := range nclients {
+		queuesOPT[i] = &queues.GlobalOptions{
+			Bandwidth: td.options.MinBandwidth + rng.Uint32()%(td.options.MaxBandwidth-td.options.MinBandwidth+1), // Achar valores mais reais
+			NetType:   queues.CLIENT,
+		}
+	}
+
 	for round := 1; round <= rounds; round++ {
 		var clients [][]string
 		dqueues := make([]*queues.EventQueue, nclients)
 		workloads := make([]queues.EventHeap, nclients)
+		serverWorkload := queues.EventHeap{}
 
 		for i, record := range records {
 			if i == 0 {
@@ -157,7 +167,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 			}
 		}
 
-		currentTime += SYNC_TIME + SERVER_AGG_TIME + DOWNLINK_TIME
+		currentTime += SERVER_AGG_TIME + DOWNLINK_TIME
 
 		for i := range workloads {
 			var arrivalInterval float64 = 0
@@ -185,19 +195,16 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		}
 
 		for i := range dqueues {
-			queueOpt := queues.GlobalOptions{
-				MaxQueue:  uint16(math.Floor((float64(workloads[i].Len()) * 0.10))),
-				Bandwidth: td.options.MinBandwidth + rng.Uint32()%(td.options.MaxBandwidth-td.options.MinBandwidth+1), // Achar valores mais reais
-			}
+			queuesOPT[i].MaxQueue = uint16(math.Floor((float64(workloads[i].Len()) * 0.10)))
 
-			dqueues[i] = queues.New(&queueOpt, &workloads[i], td.resultsWritter)
+			dqueues[i] = queues.New(queuesOPT[i], &workloads[i], td.resultsWritter)
 		}
 
 		qwg := sync.WaitGroup{}
 
 		qwg.Add(nclients)
 
-		log.Printf("\nRound %d\n", round)
+		fmt.Printf("\nRound %d\n", round)
 
 		for i := range nclients {
 			go func(qid int) {
@@ -218,12 +225,38 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 					throughput,
 				)
 
-				log.Print(resultString)
+				fmt.Print(resultString)
+
+				tmutex.Lock()
+				for qout.Workload.Len() > 0 {
+					heap.Push(&serverWorkload, heap.Pop(qout.Workload))
+				}
+				tmutex.Unlock()
 
 				qwg.Done()
 			}(i)
 		}
 
 		qwg.Wait()
+
+		serverQueue := queues.New(&queues.GlobalOptions{
+			MaxQueue:  uint16(math.Floor((float64(serverWorkload.Len()) * 0.10))),
+			NetType:   queues.SERVER,
+			Bandwidth: SERVER_BANDWIDTH,
+		},
+			&serverWorkload,
+			td.resultsWritter,
+		)
+
+		sqout := serverQueue.Start()
+
+		meanDelay, throughput := td.calculeMetrics(sqout)
+
+		resultString := fmt.Sprintf("\nServer Channel Metrics\nMean Delay: %f seconds\nThroughput: %f bits per second\n",
+			meanDelay,
+			throughput,
+		)
+
+		fmt.Print(resultString)
 	}
 }

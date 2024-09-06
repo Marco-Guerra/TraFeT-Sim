@@ -3,6 +3,7 @@ package writer
 import "encoding/csv"
 
 type WriterRegister struct {
+	Network       uint8
 	ClientID      uint16
 	RoundNumber   uint16
 	Size          uint32

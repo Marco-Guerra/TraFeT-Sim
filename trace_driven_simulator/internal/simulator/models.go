@@ -5,10 +5,10 @@ import (
 )
 
 const (
-	SYNC_TIME               float32 = 180
 	SERVER_AGG_TIME         float32 = 60
 	DOWNLINK_TIME           float32 = 30
 	BACKGROUND_TRAFFIC_RATE float64 = 100
+	SERVER_BANDWIDTH        uint32  = 4000000
 )
 
 type GlobalOptions struct {

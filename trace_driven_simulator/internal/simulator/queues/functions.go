@@ -17,20 +17,53 @@ func New(options *GlobalOptions, workload *EventHeap, rwritter *writer.Writer) *
 }
 
 func (evq *EventQueue) Start() *Output {
-	numPackets, totalBytes, totalDelay := evq.processEvents()
+	numPackets, totalBytes, totalDelay, outWorkload := evq.processEvents()
 
 	return &Output{
 		SimTime:    evq.currentTime,
 		TotalBytes: totalBytes,
 		Delay:      totalDelay,
 		NumPackets: uint32(numPackets),
+		Workload:   outWorkload,
 	}
 }
 
-func (evq *EventQueue) processEvents() (int, uint64, float64) {
+func (evq *EventQueue) cleanBuffer() {
+	qlen := len(evq.queue)
+
+	if qlen >= int(evq.options.MaxQueue) {
+		index := -1
+		low := 0
+		high := qlen - 1
+
+		for low <= high {
+			mid := (low + high) / 2
+
+			if evq.queue[mid].DepartureTime == evq.currentTime {
+				index = mid
+				break
+			} else if evq.queue[mid].DepartureTime < evq.currentTime {
+				low = mid + 1
+			} else {
+				high = mid - 1
+			}
+		}
+
+		if index > 1 {
+			evq.queue = evq.queue[index:]
+		}
+	}
+}
+
+func (evq *EventQueue) processEvents() (int, uint64, float64, *EventHeap) {
 	numPackets := evq.events.Len()
 	var totalBytes uint64 = 0
 	var totalDelay float64 = 0
+	var outWorkload *EventHeap = nil
+
+	if evq.options.NetType != SERVER {
+		outWorkload = &EventHeap{}
+	}
 
 	for evq.events.Len() > 0 {
 		event := heap.Pop(evq.events).(*Event)
@@ -64,40 +97,30 @@ func (evq *EventQueue) processEvents() (int, uint64, float64) {
 
 			evq.resultsWritter.Write(&writer.WriterRegister{
 				ClientID:      event.ClientID,
+				Network:       uint8(evq.options.NetType),
 				RoundNumber:   event.RoundNumber,
 				ArrivalTime:   event.ArrivalTime,
 				DepartureTime: event.DepartureTime,
 				Size:          event.Packet.Size,
 			})
 
-			qlen := len(evq.queue)
+			event.Packet.ArrivalTime = event.Packet.DepartureTime
 
-			if qlen >= int(evq.options.MaxQueue) {
-				index := -1
-				low := 0
-				high := qlen - 1
-
-				for low <= high {
-					mid := (low + high) / 2
-
-					if evq.queue[mid].DepartureTime == evq.currentTime {
-						index = mid
-						break
-					} else if evq.queue[mid].DepartureTime < evq.currentTime {
-						low = mid + 1
-					} else {
-						high = mid - 1
-					}
-				}
-
-				if index > 1 {
-					evq.queue = evq.queue[index:]
-				}
+			if evq.options.NetType != SERVER {
+				heap.Push(outWorkload, &Event{
+					Time:        event.Packet.DepartureTime,
+					RoundNumber: event.RoundNumber,
+					ClientID:    event.ClientID,
+					Packet:      event.Packet,
+					Type:        ARRIVAL,
+				})
 			}
+
+			evq.cleanBuffer()
 		default:
 			log.Fatal("Unkown Event on the Event list. ", event)
 		}
 	}
 
-	return numPackets, totalBytes, totalDelay
+	return numPackets, totalBytes, totalDelay, outWorkload
 }
