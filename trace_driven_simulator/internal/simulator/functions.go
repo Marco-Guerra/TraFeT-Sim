@@ -84,7 +84,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 	}
 
 	// Find the number of clients
-	nclients := 0
+	nFLClients := 0
 	lastNClients := 0
 	for i, record := range records {
 		if i == 0 {
@@ -92,12 +92,12 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		}
 
 		clientID, _ := strconv.Atoi(record[0])
-		if clientID > nclients {
-			lastNClients = nclients
-			nclients = clientID
+		if clientID > nFLClients {
+			lastNClients = nFLClients
+			nFLClients = clientID
 		}
 
-		if lastNClients == nclients {
+		if lastNClients == nFLClients {
 			break
 		}
 	}
@@ -106,19 +106,26 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 
 	go td.resultsWritter.Start()
 
-	queuesOPT := make([]*queues.GlobalOptions, nclients)
+	nBackgroundClients := int(math.Floor(float64(nFLClients) * BACKGROUND_CLIENTS_PERCENT))
 
-	for i := range nclients {
+	queuesOPT := make([]*queues.GlobalOptions, nFLClients+nBackgroundClients)
+
+	var clientsAggBandwidth uint64 = 0
+
+	for i := range nFLClients + nBackgroundClients {
+		clientBandwidth := td.options.MinBandwidth + rng.Uint32()%(td.options.MaxBandwidth-td.options.MinBandwidth+1) // Achar valores mais reais
 		queuesOPT[i] = &queues.GlobalOptions{
-			Bandwidth: td.options.MinBandwidth + rng.Uint32()%(td.options.MaxBandwidth-td.options.MinBandwidth+1), // Achar valores mais reais
+			Bandwidth: clientBandwidth,
 			NetType:   queues.CLIENT,
 		}
+
+		clientsAggBandwidth += uint64(clientBandwidth)
 	}
 
 	for round := 1; round <= rounds; round++ {
 		var clients [][]string
-		dqueues := make([]*queues.EventQueue, nclients)
-		workloads := make([]queues.EventHeap, nclients)
+		dqueues := make([]*queues.EventQueue, nFLClients+nBackgroundClients)
+		workloads := make([]queues.EventHeap, nFLClients+nBackgroundClients)
 		serverWorkload := queues.EventHeap{}
 
 		for i, record := range records {
@@ -169,7 +176,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 
 		currentTime += SERVER_AGG_TIME + DOWNLINK_TIME
 
-		for i := range workloads {
+		for i := nFLClients; i < nFLClients+nBackgroundClients; i++ {
 			var arrivalInterval float64 = 0
 			for localtime := float64(previousTime); localtime <= float64(currentTime); localtime += arrivalInterval {
 				packet := queues.Packet{
@@ -202,11 +209,11 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 
 		qwg := sync.WaitGroup{}
 
-		qwg.Add(nclients)
+		qwg.Add(nBackgroundClients + nFLClients)
 
 		fmt.Printf("\nRound %d\n", round)
 
-		for i := range nclients {
+		for i := range nBackgroundClients + nFLClients {
 			go func(qid int) {
 				qout := dqueues[qid].Start()
 
@@ -242,7 +249,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		serverQueue := queues.New(&queues.GlobalOptions{
 			MaxQueue:  uint16(math.Floor((float64(serverWorkload.Len()) * 0.10))),
 			NetType:   queues.SERVER,
-			Bandwidth: SERVER_BANDWIDTH,
+			Bandwidth: uint32(math.Floor(float64(clientsAggBandwidth) * SERVER_BANDWIDTH_PERCENT)),
 		},
 			&serverWorkload,
 			td.resultsWritter,

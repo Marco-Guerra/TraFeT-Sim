@@ -5,10 +5,11 @@ import (
 )
 
 const (
-	SERVER_AGG_TIME         float32 = 60
-	DOWNLINK_TIME           float32 = 30
-	BACKGROUND_TRAFFIC_RATE float64 = 100
-	SERVER_BANDWIDTH        uint32  = 4000000
+	SERVER_AGG_TIME            float32 = 60
+	DOWNLINK_TIME              float32 = 30
+	BACKGROUND_TRAFFIC_RATE    float64 = 10000
+	BACKGROUND_CLIENTS_PERCENT float64 = 0.2
+	SERVER_BANDWIDTH_PERCENT   float64 = 0.8
 )
 
 type GlobalOptions struct {
