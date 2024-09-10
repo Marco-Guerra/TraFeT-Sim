@@ -5,17 +5,16 @@ import (
 )
 
 const (
-	SERVER_AGG_TIME            float32 = 60
-	DOWNLINK_TIME              float32 = 30
-	BACKGROUND_TRAFFIC_RATE    float64 = 10000
-	BACKGROUND_CLIENTS_PERCENT float64 = 0.2
-	SERVER_BANDWIDTH_PERCENT   float64 = 0.8
+	SERVER_AGG_TIME         float32 = 60
+	DOWNLINK_TIME           float32 = 30
+	BACKGROUND_TRAFFIC_RATE float64 = 10000
+	ETHERNET_MTU            uint16  = 1500
 )
 
 type GlobalOptions struct {
-	MinBandwidth uint32
-	MaxBandwidth uint32
-	MTU          uint16
+	ClientsBandwidth   uint32
+	ServerBandwidth    uint32
+	NBackgroundClients uint16
 }
 
 type TraceDriven struct {

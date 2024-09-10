@@ -106,26 +106,21 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 
 	go td.resultsWritter.Start()
 
-	nBackgroundClients := int(math.Floor(float64(nFLClients) * BACKGROUND_CLIENTS_PERCENT))
+	nclient := nFLClients + int(td.options.NBackgroundClients)
 
-	queuesOPT := make([]*queues.GlobalOptions, nFLClients+nBackgroundClients)
+	queuesOPT := make([]*queues.GlobalOptions, nclient)
 
-	var clientsAggBandwidth uint64 = 0
-
-	for i := range nFLClients + nBackgroundClients {
-		clientBandwidth := td.options.MinBandwidth + rng.Uint32()%(td.options.MaxBandwidth-td.options.MinBandwidth+1) // Achar valores mais reais
+	for i := range nclient {
 		queuesOPT[i] = &queues.GlobalOptions{
-			Bandwidth: clientBandwidth,
+			Bandwidth: td.options.ClientsBandwidth,
 			NetType:   queues.CLIENT,
 		}
-
-		clientsAggBandwidth += uint64(clientBandwidth)
 	}
 
 	for round := 1; round <= rounds; round++ {
 		var clients [][]string
-		dqueues := make([]*queues.EventQueue, nFLClients+nBackgroundClients)
-		workloads := make([]queues.EventHeap, nFLClients+nBackgroundClients)
+		dqueues := make([]*queues.EventQueue, nclient)
+		workloads := make([]queues.EventHeap, nclient)
 		serverWorkload := queues.EventHeap{}
 
 		for i, record := range records {
@@ -176,7 +171,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 
 		currentTime += SERVER_AGG_TIME + DOWNLINK_TIME
 
-		for i := nFLClients; i < nFLClients+nBackgroundClients; i++ {
+		for i := nFLClients; i < nclient; i++ {
 			var arrivalInterval float64 = 0
 			for localtime := float64(previousTime); localtime <= float64(currentTime); localtime += arrivalInterval {
 				packet := queues.Packet{
@@ -209,11 +204,11 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 
 		qwg := sync.WaitGroup{}
 
-		qwg.Add(nBackgroundClients + nFLClients)
+		qwg.Add(nclient)
 
 		fmt.Printf("\nRound %d\n", round)
 
-		for i := range nBackgroundClients + nFLClients {
+		for i := range nclient {
 			go func(qid int) {
 				qout := dqueues[qid].Start()
 
@@ -249,7 +244,7 @@ func (td *TraceDriven) readTrace(traceFilename string) {
 		serverQueue := queues.New(&queues.GlobalOptions{
 			MaxQueue:  uint16(math.Floor((float64(serverWorkload.Len()) * 0.10))),
 			NetType:   queues.SERVER,
-			Bandwidth: uint32(math.Floor(float64(clientsAggBandwidth) * SERVER_BANDWIDTH_PERCENT)),
+			Bandwidth: td.options.ServerBandwidth,
 		},
 			&serverWorkload,
 			td.resultsWritter,
