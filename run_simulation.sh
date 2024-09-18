@@ -23,12 +23,12 @@ for dataset in "${datasets[@]}"; do
     if [ "$algorithm" == "minibatch" ]; then
         for minibatch_val in "${minibatch_vals[@]}"; do
             trace_file=`echo "trace_driven_simulator/data/metrics_sys_${dataset}_${algorithm}_c_30_mb_${minibatch_val}.csv"`
-            go run trace_driven_simulator/main.go -t "${trace_file}" > "trace_driven_${dataset}_${algorithm}_c_30_mb_${minibatch_val}.log"
+            go run trace_driven_simulator/main.go -t "${trace_file}" > "trace_driven_${dataset}_${algorithm}_c_30_mb_${minibatch_val}.csv"
         done
     else
         for nclient in "${nclients[@]}"; do
             trace_file=`echo "trace_driven_simulator/data/metrics_sys_${dataset}_${algorithm}_c_${nclient}_e_1.csv"`
-            go run trace_driven_simulator/main.go -t "${trace_file}" > "trace_driven_${dataset}_${algorithm}_c_${nclient}_e_1.log"
+            go run trace_driven_simulator/main.go -t "${trace_file}" > "trace_driven_${dataset}_${algorithm}_c_${nclient}_e_1.csv"
         done
     fi
   done

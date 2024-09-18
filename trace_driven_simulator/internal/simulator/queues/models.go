@@ -16,12 +16,23 @@ const (
 	CLIENT NetType = 1
 )
 
+type PacketType uint8
+
+const (
+	LAST     PacketType = 0
+	FRAGMENT PacketType = 1
+	FIRST    PacketType = 2
+)
+
 type Packet struct {
+	MSSSize          uint32
 	Size             uint32
+	MSSArrivalTime   float32
 	ArrivalTime      float32
 	StartServiceTime float32
 	DepartureTime    float32
 	Id               uint64
+	Type             PacketType
 }
 
 type Event struct {

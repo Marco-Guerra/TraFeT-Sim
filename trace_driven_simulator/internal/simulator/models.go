@@ -8,6 +8,8 @@ const (
 	SERVER_AGG_TIME         float32 = 60
 	DOWNLINK_TIME           float32 = 30
 	BACKGROUND_TRAFFIC_RATE float64 = 10000
+	ETHERNET_HEADER         uint8   = 14
+	ETHERNET_MIN_FRAME      uint8   = 64
 	ETHERNET_MTU            uint16  = 1500
 )
 

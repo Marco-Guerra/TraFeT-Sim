@@ -91,18 +91,23 @@ func (evq *EventQueue) processEvents() (int, uint64, float64, *EventHeap) {
 
 			evq.queue = append(evq.queue, event.Packet)
 		case DEPARTURE:
-			individualDelay := event.Packet.DepartureTime - event.Packet.ArrivalTime
 			totalBytes += uint64(event.Packet.Size)
-			totalDelay += float64(individualDelay)
 
-			evq.resultsWritter.Write(&writer.WriterRegister{
-				ClientID:      event.ClientID,
-				Network:       uint8(evq.options.NetType),
-				RoundNumber:   event.RoundNumber,
-				ArrivalTime:   event.ArrivalTime,
-				DepartureTime: event.DepartureTime,
-				Size:          event.Packet.Size,
-			})
+			if event.Packet.Type == LAST {
+				individualDelay := event.Packet.DepartureTime - event.Packet.MSSArrivalTime
+
+				evq.resultsWritter.Write(&writer.WriterRegister{
+					ClientID:      event.ClientID,
+					Network:       uint8(evq.options.NetType),
+					RoundNumber:   event.RoundNumber,
+					ArrivalTime:   event.Packet.MSSArrivalTime,
+					DepartureTime: event.DepartureTime,
+					Size:          event.Packet.MSSSize,
+				})
+
+				totalDelay += float64(individualDelay)
+				event.Packet.MSSArrivalTime = event.Packet.DepartureTime
+			}
 
 			event.Packet.ArrivalTime = event.Packet.DepartureTime
 
