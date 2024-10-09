@@ -50,13 +50,15 @@ func (w *Writer) write() {
 	stringBuffer := make([][]string, w.maxBufferSize)
 
 	for rid := range w.aggregationBuffer {
-		tempString := fmt.Sprintf("%d,%d,%d,%.3f,%.3f,%d",
+		tempString := fmt.Sprintf("%d,%d,%d,%d,%.9f,%.9f,%.9f,%.9f",
 			w.aggregationBuffer[rid].ClientID,
-			w.aggregationBuffer[rid].Network,
 			w.aggregationBuffer[rid].RoundNumber,
-			w.aggregationBuffer[rid].ArrivalTime,
-			w.aggregationBuffer[rid].DepartureTime,
-			w.aggregationBuffer[rid].Size,
+			w.aggregationBuffer[rid].Workload,
+			w.aggregationBuffer[rid].BackgroundWorkload,
+			w.aggregationBuffer[rid].ComputationTime,
+			w.aggregationBuffer[rid].ClientQueueDelay,
+			w.aggregationBuffer[rid].PropagationDelay,
+			w.aggregationBuffer[rid].StationQueueDelay,
 		)
 
 		stringBuffer[rid] = strings.Split(tempString, ",")

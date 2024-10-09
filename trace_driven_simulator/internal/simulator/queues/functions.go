@@ -3,6 +3,7 @@ package queues
 import (
 	"container/heap"
 	"log"
+	"math"
 
 	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/packages/writer"
 )
@@ -17,13 +18,14 @@ func New(options *GlobalOptions, workload *EventHeap, rwritter *writer.Writer) *
 }
 
 func (evq *EventQueue) Start() *Output {
-	numPackets, totalBytes, totalDelay, outWorkload := evq.processEvents()
+	numPackets, totalBytes, simTime, totalDelay, outWorkload := evq.processEvents()
 
 	return &Output{
-		SimTime:    evq.currentTime,
+		SimTime:    simTime,
 		TotalBytes: totalBytes,
 		Delay:      totalDelay,
 		NumPackets: uint32(numPackets),
+		Bandwidth:  evq.options.Bandwidth,
 		Workload:   outWorkload,
 	}
 }
@@ -55,11 +57,12 @@ func (evq *EventQueue) cleanBuffer() {
 	}
 }
 
-func (evq *EventQueue) processEvents() (int, uint64, float64, *EventHeap) {
+func (evq *EventQueue) processEvents() (int, uint64, float64, float64, *EventHeap) {
 	numPackets := evq.events.Len()
 	var totalBytes uint64 = 0
 	var totalDelay float64 = 0
 	var outWorkload *EventHeap = nil
+	simStartTime := (*evq.events)[0].Time
 
 	if evq.options.NetType != SERVER {
 		outWorkload = &EventHeap{}
@@ -73,20 +76,22 @@ func (evq *EventQueue) processEvents() (int, uint64, float64, *EventHeap) {
 		case ARRIVAL:
 			qlen := len(evq.queue)
 
-			if qlen == 0 || evq.queue[qlen-1].DepartureTime <= event.Packet.ArrivalTime {
+			if qlen == 0 || evq.queue[qlen-1].DepartureTime < event.Packet.ArrivalTime {
 				event.Packet.StartServiceTime = event.Packet.ArrivalTime
 			} else {
 				event.Packet.StartServiceTime = evq.queue[qlen-1].DepartureTime
 			}
 
-			event.Packet.DepartureTime = event.Packet.StartServiceTime + (float32(event.Packet.Size)*8)/float32(evq.options.Bandwidth)
+			event.Packet.DepartureTime = event.Packet.StartServiceTime + (float64(event.Packet.Size)*8)/float64(evq.options.Bandwidth)
 
 			heap.Push(evq.events, &Event{
-				Time:        event.Packet.DepartureTime,
-				RoundNumber: event.RoundNumber,
-				ClientID:    event.ClientID,
-				Packet:      event.Packet,
-				Type:        DEPARTURE,
+				Time:             event.Packet.DepartureTime,
+				RoundNumber:      event.RoundNumber,
+				ComputationTime:  event.ComputationTime,
+				ClientQueueDelay: event.ClientQueueDelay,
+				ClientID:         event.ClientID,
+				Packet:           event.Packet,
+				Type:             DEPARTURE,
 			})
 
 			evq.queue = append(evq.queue, event.Packet)
@@ -96,28 +101,39 @@ func (evq *EventQueue) processEvents() (int, uint64, float64, *EventHeap) {
 			if event.Packet.Type == LAST {
 				individualDelay := event.Packet.DepartureTime - event.Packet.MSSArrivalTime
 
-				evq.resultsWritter.Write(&writer.WriterRegister{
-					ClientID:      event.ClientID,
-					Network:       uint8(evq.options.NetType),
-					RoundNumber:   event.RoundNumber,
-					ArrivalTime:   event.Packet.MSSArrivalTime,
-					DepartureTime: event.DepartureTime,
-					Size:          event.Packet.MSSSize,
-				})
+				if event.ClientID != 4096 {
+					switch evq.options.NetType {
+					case CLIENT:
+						event.ClientQueueDelay = individualDelay
+					case SERVER:
+						evq.resultsWritter.Write(&writer.WriterRegister{
+							ClientID:           event.ClientID,
+							ComputationTime:    event.ComputationTime,
+							Workload:           uint32(math.Floor((float64(event.MSSSize) * 8 / event.ComputationTime))),
+							PropagationDelay:   float64(evq.options.ChannelLength / evq.options.PropagationSpeed),
+							BackgroundWorkload: evq.options.BackgroundWorkload,
+							ClientQueueDelay:   event.ClientQueueDelay,
+							StationQueueDelay:  individualDelay,
+							RoundNumber:        event.RoundNumber,
+						})
+					}
+				}
 
 				totalDelay += float64(individualDelay)
-				event.Packet.MSSArrivalTime = event.Packet.DepartureTime
 			}
 
-			event.Packet.ArrivalTime = event.Packet.DepartureTime
+			event.Packet.ArrivalTime = event.Packet.DepartureTime + float64(evq.options.ChannelLength/evq.options.PropagationSpeed)
+			event.Packet.MSSArrivalTime = event.Packet.ArrivalTime
 
 			if evq.options.NetType != SERVER {
 				heap.Push(outWorkload, &Event{
-					Time:        event.Packet.DepartureTime,
-					RoundNumber: event.RoundNumber,
-					ClientID:    event.ClientID,
-					Packet:      event.Packet,
-					Type:        ARRIVAL,
+					ComputationTime:  event.ComputationTime,
+					ClientQueueDelay: event.ClientQueueDelay,
+					Time:             event.Packet.ArrivalTime,
+					RoundNumber:      event.RoundNumber,
+					ClientID:         event.ClientID,
+					Packet:           event.Packet,
+					Type:             ARRIVAL,
 				})
 			}
 
@@ -127,5 +143,13 @@ func (evq *EventQueue) processEvents() (int, uint64, float64, *EventHeap) {
 		}
 	}
 
-	return numPackets, totalBytes, totalDelay, outWorkload
+	if outWorkload != nil && (*outWorkload)[0].ClientID != 4096 {
+		firstEvent := (*outWorkload)[0]
+		for i := 1; i < outWorkload.Len(); i++ {
+			event := (*outWorkload)[i]
+			event.Packet.MSSArrivalTime = firstEvent.Packet.MSSArrivalTime
+		}
+	}
+
+	return numPackets, totalBytes, evq.currentTime - simStartTime, totalDelay, outWorkload
 }

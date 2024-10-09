@@ -1,6 +1,8 @@
 package queues
 
-import "github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/packages/writer"
+import (
+	"github.com/Marco-Guerra/Federated-Learning-Network-Workload/trace_driven_simulator/packages/writer"
+)
 
 type EventType uint8
 
@@ -19,24 +21,26 @@ const (
 type PacketType uint8
 
 const (
-	LAST     PacketType = 0
+	FIRST    PacketType = 0
 	FRAGMENT PacketType = 1
-	FIRST    PacketType = 2
+	LAST     PacketType = 2
 )
 
 type Packet struct {
 	MSSSize          uint32
 	Size             uint32
-	MSSArrivalTime   float32
-	ArrivalTime      float32
-	StartServiceTime float32
-	DepartureTime    float32
+	MSSArrivalTime   float64
+	ArrivalTime      float64
+	StartServiceTime float64
+	DepartureTime    float64
 	Id               uint64
 	Type             PacketType
 }
 
 type Event struct {
-	Time float32
+	Time             float64
+	ComputationTime  float64
+	ClientQueueDelay float64
 	*Packet
 	ClientID    uint16
 	RoundNumber uint16
@@ -46,7 +50,8 @@ type Event struct {
 
 type Output struct {
 	NumPackets uint32
-	SimTime    float32
+	Bandwidth  uint32
+	SimTime    float64
 	Delay      float64
 	TotalBytes uint64
 	Workload   *EventHeap
@@ -54,9 +59,14 @@ type Output struct {
 
 type GlobalOptions struct {
 	NetType
-	MaxQueue  uint16
-	Bandwidth uint32
-	_         [3]byte
+	PacketHeader       uint8
+	MinPacketSize      uint8
+	MaxPacketSize      uint16
+	MaxQueue           uint16
+	Bandwidth          uint32
+	BackgroundWorkload uint32
+	ChannelLength      float32
+	PropagationSpeed   float32
 }
 
 type EventQueue struct {
@@ -64,7 +74,7 @@ type EventQueue struct {
 	queue          []*Packet
 	events         *EventHeap
 	resultsWritter *writer.Writer
-	currentTime    float32
+	currentTime    float64
 }
 
 // EventHeap implements heap.Interface and holds Events
@@ -82,6 +92,11 @@ func (h EventHeap) Less(i, j int) bool {
 	if h[i].ClientID != h[j].ClientID {
 		return h[i].ClientID < h[j].ClientID
 	}
+
+	if h[i].Packet.Type != h[j].Packet.Type {
+		return h[i].Packet.Type < h[j].Packet.Type
+	}
+
 	return h[i].Packet.Id < h[j].Packet.Id
 }
 
