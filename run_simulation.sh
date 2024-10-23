@@ -11,9 +11,7 @@ flops_vals=(250000000 500000000 1000000000 1500000000 2000000000)
 clients_bwd=1500000000 # 1.5 Gbps
 server_bwd=2250000000 # 2.25 Gbps
 number_cores=4 # Paralelism level
-p=0.94 # Portion of the program that can be parallelized
-sigma=0.05  # Contention factor
-kappa=0.01  # Coherency factor
+p=0.95 # Portion of the program that can be parallelized
 
 # Preprocess vars
 output_dir="trace_driven_simulator/data/"
@@ -30,20 +28,6 @@ cleanup() {
 amdahl_speedup() {
   local cores=$1
   local speedup=$(echo "scale=4; 1 / ((1 - $p) + ($p / $cores))" | bc -l)
-  echo "$speedup"
-}
-
-# Gustafson's Law function
-gustafson_speedup() {
-  local cores=$1
-  local speedup=$(echo "scale=4; $cores - (1 - $p) * ($cores - 1)" | bc -l)
-  echo "$speedup"
-}
-
-# Universal Scalability Law (USL) function
-usl_speedup() {
-  local cores=$1
-  local speedup=$(echo "scale=4; $cores / (1 + $sigma * ($cores - 1) + $kappa * $cores * ($cores - 1))" | bc -l)
   echo "$speedup"
 }
 
