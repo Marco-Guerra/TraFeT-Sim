@@ -28,7 +28,7 @@ cleanup() {
 amdahl_speedup() {
   local cores=$1
   local speedup=$(echo "scale=4; 1 / ((1 - $p) + ($p / $cores))" | bc -l)
-  echo "$speedup"
+  echo "${speedup}"
 }
 
 trap cleanup SIGINT SIGTERM
@@ -48,12 +48,12 @@ for flops in "${flops_vals[@]}"; do
       echo "Running data processor for dataset Shakespeare with ${flops} FLOPs..."
       python3 trace_driven_simulator/data_processor.py --sample-dir "leaf_output/${dataset}/sys/" --search-pattern "metrics_sys_*" --output-dir "${output_dir}/homogeneus/${flops}/" --clients-flops "${flops}"
     else
-      echo "Adjusted FLOPs with ${number_cores} cores: ${flops_adjusted}"
-      speedup=$(amdahl_speedup "$number_cores")
-      flops_adjusted=$(echo "$flops * $speedup" | bc -l)
+      speedup=$(amdahl_speedup "${number_cores}")
+      flops_adjusted=$(echo "${flops} * ${speedup}" | bc -l)
       flops_adjusted=${flops_adjusted%.*} # Convert to integer
+      echo "Adjusted FLOPs with ${number_cores} cores: ${flops_adjusted}"
       echo "Running data processor for dataset FEMNIST with ${flops_adjusted} FLOPs..."
-      python3 trace_driven_simulator/data_processor.py --sample-dir "leaf_output/${dataset}/sys/" --search-pattern "metrics_sys_*" --output-dir "${output_dir}/homogeneus/${flops}/" --clients-flops "${flops_multiplied}"
+      python3 trace_driven_simulator/data_processor.py --sample-dir "leaf_output/${dataset}/sys/" --search-pattern "metrics_sys_*" --output-dir "${output_dir}/homogeneus/${flops}/" --clients-flops "${flops_adjusted}"
     fi
   done
 
